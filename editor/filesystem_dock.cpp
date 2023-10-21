@@ -1776,12 +1776,12 @@ void FileSystemDock::_rename_operation_confirm() {
 
 	// Present a more user friendly warning for name conflict.
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_RESOURCES);
-#if defined(WINDOWS_ENABLED)
-	// Workaround case insensitivity on Windows.
-	if ((da->file_exists(new_path) || da->dir_exists(new_path)) && new_path.to_lower() != old_path.to_lower()) {
-#else
-	if (da->file_exists(new_path) || da->dir_exists(new_path)) {
-#endif
+
+	bool new_exist = (da->file_exists(new_path) || da->dir_exists(new_path));
+	if (!da->is_case_sensitive(new_path.get_base_dir())) {
+		new_exist = new_exist && (new_path.to_lower() != old_path.to_lower());
+	}
+	if (new_exist) {
 		EditorNode::get_singleton()->show_warning(TTR("A file or folder with this name already exists."));
 		ti->set_text(col_index, old_name);
 		return;
@@ -2975,7 +2975,7 @@ void FileSystemDock::_file_and_folders_fill_popup(PopupMenu *p_popup, Vector<Str
 			folder_colors_menu->add_separator();
 
 			for (const KeyValue<String, Color> &E : folder_colors) {
-				folder_colors_menu->add_icon_item(get_editor_theme_icon(SNAME("Folder")), TTR(E.key.capitalize()));
+				folder_colors_menu->add_icon_item(get_editor_theme_icon(SNAME("Folder")), E.key.capitalize());
 
 				folder_colors_menu->set_item_icon_modulate(-1, editor_is_dark_theme ? E.value : E.value * 2);
 				folder_colors_menu->set_item_metadata(-1, E.key);
@@ -3535,16 +3535,16 @@ FileSystemDock::FileSystemDock() {
 	ED_SHORTCUT("filesystem_dock/open_in_external_program", TTR("Open in External Program"));
 #endif
 
-	folder_colors = HashMap<String, Color>();
-	folder_colors["red"] = Color(1.0, 0.271, 0.271);
-	folder_colors["orange"] = Color(1.0, 0.561, 0.271);
-	folder_colors["yellow"] = Color(1.0, 0.890, 0.271);
-	folder_colors["green"] = Color(0.502, 1.0, 0.271);
-	folder_colors["teal"] = Color(0.271, 1.0, 0.635);
-	folder_colors["blue"] = Color(0.271, 0.843, 1.0);
-	folder_colors["purple"] = Color(0.502, 0.271, 1.0);
-	folder_colors["pink"] = Color(1.0, 0.271, 0.588);
-	folder_colors["gray"] = Color(0.616, 0.616, 0.616);
+	// Properly translating color names would require a separate HashMap, so for simplicity they are provided as comments.
+	folder_colors["red"] = Color(1.0, 0.271, 0.271); // TTR("Red")
+	folder_colors["orange"] = Color(1.0, 0.561, 0.271); // TTR("Orange")
+	folder_colors["yellow"] = Color(1.0, 0.890, 0.271); // TTR("Yellow")
+	folder_colors["green"] = Color(0.502, 1.0, 0.271); // TTR("Green")
+	folder_colors["teal"] = Color(0.271, 1.0, 0.635); // TTR("Teal")
+	folder_colors["blue"] = Color(0.271, 0.843, 1.0); // TTR("Blue")
+	folder_colors["purple"] = Color(0.502, 0.271, 1.0); // TTR("Purple")
+	folder_colors["pink"] = Color(1.0, 0.271, 0.588); // TTR("Pink")
+	folder_colors["gray"] = Color(0.616, 0.616, 0.616); // TTR("Gray")
 
 	assigned_folder_colors = ProjectSettings::get_singleton()->get_setting("file_customization/folder_colors");
 

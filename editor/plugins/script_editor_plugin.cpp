@@ -997,7 +997,7 @@ void ScriptEditor::_res_saved_callback(const Ref<Resource> &p_res) {
 	}
 
 	_update_script_names();
-	_trigger_live_script_reload();
+	trigger_live_script_reload();
 }
 
 void ScriptEditor::_scene_saved_callback(const String &p_path) {
@@ -1025,7 +1025,7 @@ void ScriptEditor::_scene_saved_callback(const String &p_path) {
 	}
 }
 
-void ScriptEditor::_trigger_live_script_reload() {
+void ScriptEditor::trigger_live_script_reload() {
 	if (!pending_auto_reload && auto_reload_running_scripts) {
 		call_deferred(SNAME("_live_auto_reload_running_scripts"));
 		pending_auto_reload = true;
@@ -4023,8 +4023,8 @@ ScriptEditor::ScriptEditor(WindowWrapper *p_wrapper) {
 	debugger->connect("set_execution", callable_mp(this, &ScriptEditor::_set_execution));
 	debugger->connect("clear_execution", callable_mp(this, &ScriptEditor::_clear_execution));
 	debugger->connect("breaked", callable_mp(this, &ScriptEditor::_breaked));
-	debugger->get_default_debugger()->connect("set_breakpoint", callable_mp(this, &ScriptEditor::_set_breakpoint));
-	debugger->get_default_debugger()->connect("clear_breakpoints", callable_mp(this, &ScriptEditor::_clear_breakpoints));
+	debugger->connect("breakpoint_set_in_tree", callable_mp(this, &ScriptEditor::_set_breakpoint));
+	debugger->connect("breakpoints_cleared_in_tree", callable_mp(this, &ScriptEditor::_clear_breakpoints));
 
 	menu_hb->add_spacer();
 
