@@ -780,6 +780,8 @@ public:
 
 	enum StorageBufferUsage {
 		STORAGE_BUFFER_USAGE_DISPATCH_INDIRECT = 1,
+		STORAGE_BUFFER_USAGE_READONLY = 2,
+		STORAGE_BUFFER_USAGE_WRITEONLY = 4,
 	};
 
 	virtual RID uniform_buffer_create(uint32_t p_size_bytes, const Vector<uint8_t> &p_data = Vector<uint8_t>()) = 0;
@@ -1220,6 +1222,7 @@ public:
 	virtual void compute_list_dispatch_threads(ComputeListID p_list, uint32_t p_x_threads, uint32_t p_y_threads, uint32_t p_z_threads) = 0;
 	virtual void compute_list_dispatch_indirect(ComputeListID p_list, RID p_buffer, uint32_t p_offset) = 0;
 	virtual void compute_list_add_barrier(ComputeListID p_list) = 0;
+	virtual void compute_list_add_label(ComputeListID p_list, String p_label_name, const Color p_color) = 0;
 
 	virtual void compute_list_end(BitField<BarrierMask> p_post_barrier = BARRIER_MASK_ALL_BARRIERS) = 0;
 

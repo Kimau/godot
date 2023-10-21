@@ -1576,26 +1576,29 @@ Error RenderingDeviceVulkan::_buffer_update(Buffer *p_buffer, size_t p_offset, c
 		}
 
 		// Map staging buffer (It's CPU and coherent).
-
-		void *data_ptr = nullptr;
+		if(p_data != nullptr) // has data to copy
 		{
-			VkResult vkerr = vmaMapMemory(allocator, staging_buffer_blocks[staging_buffer_current].allocation, &data_ptr);
-			ERR_FAIL_COND_V_MSG(vkerr, ERR_CANT_CREATE, "vmaMapMemory failed with error " + itos(vkerr) + ".");
+			void *data_ptr = nullptr;
+			{
+				VkResult vkerr = vmaMapMemory(allocator, staging_buffer_blocks[staging_buffer_current].allocation, &data_ptr);
+				ERR_FAIL_COND_V_MSG(vkerr, ERR_CANT_CREATE, "vmaMapMemory failed with error " + itos(vkerr) + ".");
+			}
+
+			// Copy to staging buffer.
+			memcpy(((uint8_t *)data_ptr) + block_write_offset, p_data + submit_from, block_write_amount);
+
+			// Unmap.
+			vmaUnmapMemory(allocator, staging_buffer_blocks[staging_buffer_current].allocation);
+		
+			// Insert a command to copy this.
+
+			VkBufferCopy region;
+			region.srcOffset = block_write_offset;
+			region.dstOffset = submit_from + p_offset;
+			region.size = block_write_amount;
+
+			vkCmdCopyBuffer(p_use_draw_command_buffer ? frames[frame].draw_command_buffer : frames[frame].setup_command_buffer, staging_buffer_blocks[staging_buffer_current].buffer, p_buffer->buffer, 1, &region);
 		}
-
-		// Copy to staging buffer.
-		memcpy(((uint8_t *)data_ptr) + block_write_offset, p_data + submit_from, block_write_amount);
-
-		// Unmap.
-		vmaUnmapMemory(allocator, staging_buffer_blocks[staging_buffer_current].allocation);
-		// Insert a command to copy this.
-
-		VkBufferCopy region;
-		region.srcOffset = block_write_offset;
-		region.dstOffset = submit_from + p_offset;
-		region.size = block_write_amount;
-
-		vkCmdCopyBuffer(p_use_draw_command_buffer ? frames[frame].draw_command_buffer : frames[frame].setup_command_buffer, staging_buffer_blocks[staging_buffer_current].buffer, p_buffer->buffer, 1, &region);
 
 		staging_buffer_blocks.write[staging_buffer_current].fill_amount = block_write_offset + block_write_amount;
 
@@ -5250,17 +5253,31 @@ RID RenderingDeviceVulkan::storage_buffer_create(uint32_t p_size_bytes, const Ve
 
 	Buffer buffer;
 	uint32_t flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	ERR_FAIL_COND_V_MSG(p_usage.has_flag(STORAGE_BUFFER_USAGE_READONLY) && p_usage.has_flag(STORAGE_BUFFER_USAGE_WRITEONLY), RID(), "Cannot set both read and write ONLY flags");
+	
+	if (p_usage.has_flag(STORAGE_BUFFER_USAGE_READONLY)) {
+		flags &= ~VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	}
+	if (p_usage.has_flag(STORAGE_BUFFER_USAGE_WRITEONLY)) {
+		flags &= ~VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	}
 	if (p_usage.has_flag(STORAGE_BUFFER_USAGE_DISPATCH_INDIRECT)) {
 		flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 	}
+	
 	Error err = _buffer_allocate(&buffer, p_size_bytes, flags, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 	ERR_FAIL_COND_V(err != OK, RID());
 
 	if (p_data.size()) {
 		uint64_t data_size = p_data.size();
-		const uint8_t *r = p_data.ptr();
+		const uint8_t *r = (p_usage.has_flag(STORAGE_BUFFER_USAGE_WRITEONLY))?nullptr:p_data.ptr();
 		_buffer_update(&buffer, 0, r, data_size);
-		_buffer_memory_barrier(buffer.buffer, 0, data_size, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, false);
+		_buffer_memory_barrier(buffer.buffer, 0, data_size, 
+			VK_PIPELINE_STAGE_TRANSFER_BIT, // p_src_stage_mask
+			VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,  // p_dst_stage_mask
+			VK_ACCESS_TRANSFER_WRITE_BIT,  // p_src_access
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, // p_dst_access
+			false);
 	}
 	return storage_buffer_owner.make_rid(buffer);
 }
@@ -8264,6 +8281,15 @@ void RenderingDeviceVulkan::compute_list_dispatch_indirect(ComputeListID p_list,
 	}
 
 	vkCmdDispatchIndirect(cl->command_buffer, buffer->buffer, p_offset);
+}
+
+void RenderingDeviceVulkan::compute_list_add_label(ComputeListID p_list, String p_label_name, const Color p_color) {
+	ERR_FAIL_COND(p_list != ID_TYPE_COMPUTE_LIST);
+	ERR_FAIL_NULL(compute_list);
+
+	ComputeList *cl = compute_list;
+
+	context->command_insert_label(cl->command_buffer, p_label_name, p_color);
 }
 
 void RenderingDeviceVulkan::compute_list_add_barrier(ComputeListID p_list) {

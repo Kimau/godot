@@ -75,6 +75,15 @@
 				Raises a Vulkan compute barrier in the specified [param compute_list].
 			</description>
 		</method>
+		<method name="compute_list_add_label">
+			<return type="void" />
+			<param index="0" name="compute_list" type="int" />
+			<param index="1" name="name" type="String" />
+			<param index="2" name="color" type="Color" />
+			<description>
+				Inserts a label into the command buffer for debugging.
+			</description>
+		</method>
 		<method name="compute_list_begin">
 			<return type="int" />
 			<param index="0" name="allow_draw_overlap" type="bool" default="false" />
@@ -1815,6 +1824,8 @@
 			Index buffer in 32-bit unsigned integer format. This limits the maximum index that can be specified to [code]4294967295[/code].
 		</constant>
 		<constant name="STORAGE_BUFFER_USAGE_DISPATCH_INDIRECT" value="1" enum="StorageBufferUsage" is_bitfield="true">
+		<constant name="STORAGE_BUFFER_USAGE_READONLY" value="2" enum="StorageBufferUsage" is_bitfield="true">
+		<constant name="STORAGE_BUFFER_USAGE_WRITEONLY" value="4" enum="StorageBufferUsage" is_bitfield="true">
 		</constant>
 		<constant name="UNIFORM_TYPE_SAMPLER" value="0" enum="UniformType">
 			Sampler uniform.
