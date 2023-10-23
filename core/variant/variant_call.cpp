@@ -932,6 +932,21 @@ struct _VariantCall {
 		return dest;
 	}
 
+	static PackedVector3Array func_PackedByteArray_decode_vec3_array(PackedByteArray *p_instance) {
+		size_t stride = sizeof(float)*3;
+		uint64_t size = p_instance->size();
+		PackedVector3Array dest;
+		if (size == 0) {
+			return dest;
+		}
+		ERR_FAIL_COND_V_MSG(size % stride, dest, "PackedByteArray size must be a multiple of 4*3 (size of 32-bit float) to convert to PackedVector3Array.");
+		const uint8_t *r = p_instance->ptr();
+		dest.resize(size / stride);
+		ERR_FAIL_COND_V(dest.size() == 0, dest); // Avoid UB in case resize failed.
+		memcpy(dest.ptrw(), r, dest.size() * stride);
+		return dest;
+	}
+
 	static void func_PackedByteArray_encode_u8(PackedByteArray *p_instance, int64_t p_offset, int64_t p_value) {
 		uint64_t size = p_instance->size();
 		ERR_FAIL_COND(p_offset < 0 || p_offset > int64_t(size) - 1);
@@ -2298,6 +2313,7 @@ static void _register_variant_builtin_methods() {
 	bind_function(PackedByteArray, to_int64_array, _VariantCall::func_PackedByteArray_decode_s64_array, sarray(), varray());
 	bind_function(PackedByteArray, to_float32_array, _VariantCall::func_PackedByteArray_decode_float_array, sarray(), varray());
 	bind_function(PackedByteArray, to_float64_array, _VariantCall::func_PackedByteArray_decode_double_array, sarray(), varray());
+	bind_function(PackedByteArray, to_vec3_array, _VariantCall::func_PackedByteArray_decode_vec3_array, sarray(), varray());
 
 	bind_functionnc(PackedByteArray, encode_u8, _VariantCall::func_PackedByteArray_encode_u8, sarray("byte_offset", "value"), varray());
 	bind_functionnc(PackedByteArray, encode_s8, _VariantCall::func_PackedByteArray_encode_s8, sarray("byte_offset", "value"), varray());
