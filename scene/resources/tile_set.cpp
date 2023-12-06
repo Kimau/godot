@@ -1839,20 +1839,25 @@ Vector<Vector<Ref<Texture2D>>> TileSet::generate_terrains_icons(Size2i p_size) {
 	// Generate the icons.
 	for (int terrain_set = 0; terrain_set < get_terrain_sets_count(); terrain_set++) {
 		for (int terrain = 0; terrain < get_terrains_count(terrain_set); terrain++) {
-			Ref<Image> image;
-			image.instantiate();
+			Ref<Image> dst_image;
+			dst_image.instantiate();
 			if (counts[terrain_set][terrain].count > 0) {
 				// Get the best tile.
-				Ref<Texture2D> texture = counts[terrain_set][terrain].texture;
+				Ref<Texture2D> src_texture = counts[terrain_set][terrain].texture;
+				ERR_FAIL_COND_V(src_texture.is_null(), output);
+				Ref<Image> src_image = src_texture->get_image();
+				ERR_FAIL_COND_V(src_image.is_null(), output);
 				Rect2i region = counts[terrain_set][terrain].region;
-				image->initialize_data(region.size.x, region.size.y, false, Image::FORMAT_RGBA8);
-				image->blit_rect(texture->get_image(), region, Point2i());
-				image->resize(p_size.x, p_size.y, Image::INTERPOLATE_NEAREST);
+
+				dst_image->initialize_data(region.size.x, region.size.y, false, src_image->get_format());
+				dst_image->blit_rect(src_image, region, Point2i());
+				dst_image->convert(Image::FORMAT_RGBA8);
+				dst_image->resize(p_size.x, p_size.y, Image::INTERPOLATE_NEAREST);
 			} else {
-				image->initialize_data(1, 1, false, Image::FORMAT_RGBA8);
-				image->set_pixel(0, 0, get_terrain_color(terrain_set, terrain));
+				dst_image->initialize_data(1, 1, false, Image::FORMAT_RGBA8);
+				dst_image->set_pixel(0, 0, get_terrain_color(terrain_set, terrain));
 			}
-			Ref<ImageTexture> icon = ImageTexture::create_from_image(image);
+			Ref<ImageTexture> icon = ImageTexture::create_from_image(dst_image);
 			icon->set_size_override(p_size);
 			output.write[terrain_set].write[terrain] = icon;
 		}
@@ -4787,15 +4792,17 @@ Ref<ImageTexture> TileSetAtlasSource::_create_padded_image_texture(const Ref<Tex
 
 			image->blit_rect(*src_image, src_rect, base_pos);
 
+			// Sides
 			image->blit_rect(*src_image, top_src_rect, base_pos + Vector2i(0, -1));
 			image->blit_rect(*src_image, bottom_src_rect, base_pos + Vector2i(0, src_rect.size.y));
 			image->blit_rect(*src_image, left_src_rect, base_pos + Vector2i(-1, 0));
 			image->blit_rect(*src_image, right_src_rect, base_pos + Vector2i(src_rect.size.x, 0));
 
-			image->set_pixelv(base_pos + Vector2i(-1, -1), src_image->get_pixelv(src_rect.position));
-			image->set_pixelv(base_pos + Vector2i(src_rect.size.x, -1), src_image->get_pixelv(src_rect.position + Vector2i(src_rect.size.x - 1, 0)));
-			image->set_pixelv(base_pos + Vector2i(-1, src_rect.size.y), src_image->get_pixelv(src_rect.position + Vector2i(0, src_rect.size.y - 1)));
-			image->set_pixelv(base_pos + Vector2i(src_rect.size.x, src_rect.size.y), src_image->get_pixelv(src_rect.position + Vector2i(src_rect.size.x - 1, src_rect.size.y - 1)));
+			// Corners
+			image->blit_rect(*src_image, Rect2i(src_rect.position, Vector2i(1, 1)), base_pos + Vector2i(-1, -1));
+			image->blit_rect(*src_image, Rect2i(src_rect.position + Vector2i(src_rect.size.x - 1, 0), Vector2i(1, 1)), base_pos + Vector2i(src_rect.size.x, -1));
+			image->blit_rect(*src_image, Rect2i(src_rect.position + Vector2i(0, src_rect.size.y - 1), Vector2i(1, 1)), base_pos + Vector2i(-1, src_rect.size.y));
+			image->blit_rect(*src_image, Rect2i(src_rect.position + Vector2i(src_rect.size.x - 1, src_rect.size.y - 1), Vector2i(1, 1)), base_pos + Vector2i(src_rect.size.x, src_rect.size.y));
 		}
 	}
 
@@ -4831,31 +4838,20 @@ void TileSetAtlasSource::_update_padded_texture() {
 		Ref<Texture2D> src = src_canvas_texture->get_diffuse_texture();
 		Ref<ImageTexture> image_texture;
 		if (src.is_valid()) {
-			image_texture = _create_padded_image_texture(src);
-		} else {
-			image_texture.instantiate();
+			padded_texture->set_diffuse_texture(_create_padded_image_texture(src));
 		}
-		padded_texture->set_diffuse_texture(image_texture);
 
 		// Normal
 		src = src_canvas_texture->get_normal_texture();
-		image_texture.instantiate();
 		if (src.is_valid()) {
-			image_texture = _create_padded_image_texture(src);
-		} else {
-			image_texture.instantiate();
+			padded_texture->set_normal_texture(_create_padded_image_texture(src));
 		}
-		padded_texture->set_normal_texture(image_texture);
 
 		// Specular
 		src = src_canvas_texture->get_specular_texture();
-		image_texture.instantiate();
 		if (src.is_valid()) {
-			image_texture = _create_padded_image_texture(src);
-		} else {
-			image_texture.instantiate();
+			padded_texture->set_specular_texture(_create_padded_image_texture(src));
 		}
-		padded_texture->set_specular_texture(image_texture);
 
 		// Other properties.
 		padded_texture->set_specular_color(src_canvas_texture->get_specular_color());

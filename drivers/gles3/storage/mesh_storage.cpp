@@ -200,14 +200,12 @@ void MeshStorage::mesh_add_surface(RID p_mesh, const RS::SurfaceData &p_surface)
 #else
 
 	if (surface_version != uint64_t(RS::ARRAY_FLAG_FORMAT_CURRENT_VERSION)) {
-		RS::_fix_surface_compatibility(new_surface);
+		RS::get_singleton()->fix_surface_compatibility(new_surface);
 		surface_version = new_surface.format & (uint64_t(RS::ARRAY_FLAG_FORMAT_VERSION_MASK) << RS::ARRAY_FLAG_FORMAT_VERSION_SHIFT);
-		ERR_FAIL_COND_MSG(surface_version != uint64_t(RS::ARRAY_FLAG_FORMAT_CURRENT_VERSION),
-				"Surface version provided (" +
-						itos((surface_version >> RS::ARRAY_FLAG_FORMAT_VERSION_SHIFT) & RS::ARRAY_FLAG_FORMAT_VERSION_MASK) +
-						") does not match current version (" +
-						itos((uint64_t(RS::ARRAY_FLAG_FORMAT_CURRENT_VERSION) >> RS::ARRAY_FLAG_FORMAT_VERSION_SHIFT) & RS::ARRAY_FLAG_FORMAT_VERSION_MASK) +
-						")");
+		ERR_FAIL_COND_MSG(surface_version != RS::ARRAY_FLAG_FORMAT_CURRENT_VERSION,
+				vformat("Surface version provided (%d) does not match current version (%d).",
+						(surface_version >> RS::ARRAY_FLAG_FORMAT_VERSION_SHIFT) & RS::ARRAY_FLAG_FORMAT_VERSION_MASK,
+						(RS::ARRAY_FLAG_FORMAT_CURRENT_VERSION >> RS::ARRAY_FLAG_FORMAT_VERSION_SHIFT) & RS::ARRAY_FLAG_FORMAT_VERSION_MASK));
 	}
 #endif
 
@@ -219,8 +217,23 @@ void MeshStorage::mesh_add_surface(RID p_mesh, const RS::SurfaceData &p_surface)
 	if (new_surface.vertex_data.size()) {
 		glGenBuffers(1, &s->vertex_buffer);
 		glBindBuffer(GL_ARRAY_BUFFER, s->vertex_buffer);
-		GLES3::Utilities::get_singleton()->buffer_allocate_data(GL_ARRAY_BUFFER, s->vertex_buffer, new_surface.vertex_data.size(), new_surface.vertex_data.ptr(), (s->format & RS::ARRAY_FLAG_USE_DYNAMIC_UPDATE) ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW, "Mesh vertex buffer");
-		s->vertex_buffer_size = new_surface.vertex_data.size();
+		// If we have an uncompressed surface that contains normals, but not tangents, we need to differentiate the array
+		// from a compressed array in the shader. To do so, we allow the the normal to read 4 components out of the buffer
+		// But only give it 2 components per normal. So essentially, each vertex reads the next normal in normal.zw.
+		// This allows us to avoid adding a shader permutation, and avoid passing dummy tangents. Since the stride is kept small
+		// this should still be a net win for bandwidth.
+		// If we do this, then the last normal will read past the end of the array. So we need to pad the array with dummy data.
+		if (!(new_surface.format & RS::ARRAY_FLAG_COMPRESS_ATTRIBUTES) && (new_surface.format & RS::ARRAY_FORMAT_NORMAL) && !(new_surface.format & RS::ARRAY_FORMAT_TANGENT)) {
+			// Unfortunately, we need to copy the buffer, which is fine as doing a resize triggers a CoW anyway.
+			Vector<uint8_t> new_vertex_data;
+			new_vertex_data.resize_zeroed(new_surface.vertex_data.size() + sizeof(uint16_t) * 2);
+			memcpy(new_vertex_data.ptrw(), new_surface.vertex_data.ptr(), new_surface.vertex_data.size());
+			GLES3::Utilities::get_singleton()->buffer_allocate_data(GL_ARRAY_BUFFER, s->vertex_buffer, new_vertex_data.size(), new_vertex_data.ptr(), (s->format & RS::ARRAY_FLAG_USE_DYNAMIC_UPDATE) ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW, "Mesh vertex buffer");
+			s->vertex_buffer_size = new_vertex_data.size();
+		} else {
+			GLES3::Utilities::get_singleton()->buffer_allocate_data(GL_ARRAY_BUFFER, s->vertex_buffer, new_surface.vertex_data.size(), new_surface.vertex_data.ptr(), (s->format & RS::ARRAY_FLAG_USE_DYNAMIC_UPDATE) ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW, "Mesh vertex buffer");
+			s->vertex_buffer_size = new_surface.vertex_data.size();
+		}
 	}
 
 	if (new_surface.attribute_data.size()) {
@@ -463,6 +476,11 @@ RS::SurfaceData MeshStorage::mesh_get_surface(RID p_mesh, int p_surface) const {
 	sd.format = s.format;
 	if (s.vertex_buffer != 0) {
 		sd.vertex_data = Utilities::buffer_get_data(GL_ARRAY_BUFFER, s.vertex_buffer, s.vertex_buffer_size);
+
+		// When using an uncompressed buffer with normals, but without tangents, we have to trim the padding.
+		if (!(s.format & RS::ARRAY_FLAG_COMPRESS_ATTRIBUTES) && (s.format & RS::ARRAY_FORMAT_NORMAL) && !(s.format & RS::ARRAY_FORMAT_TANGENT)) {
+			sd.vertex_data.resize(sd.vertex_data.size() - sizeof(uint16_t) * 2);
+		}
 	}
 
 	if (s.attribute_buffer != 0) {
@@ -746,14 +764,17 @@ void MeshStorage::_mesh_surface_generate_version_for_input_mask(Mesh::Surface::V
 	int skin_stride = 0;
 
 	for (int i = 0; i < RS::ARRAY_INDEX; i++) {
+		attribs[i].enabled = false;
+		attribs[i].integer = false;
 		if (!(s->format & (1ULL << i))) {
-			attribs[i].enabled = false;
-			attribs[i].integer = false;
 			continue;
 		}
 
-		attribs[i].enabled = true;
-		attribs[i].integer = false;
+		if ((p_input_mask & (1ULL << i))) {
+			// Only enable if it matches input mask.
+			// Iterate over all anyway, so we can calculate stride.
+			attribs[i].enabled = true;
+		}
 
 		switch (i) {
 			case RS::ARRAY_VERTEX: {
@@ -1090,8 +1111,6 @@ void MeshStorage::_blend_shape_bind_mesh_instance_buffer(MeshInstance *p_mi, uin
 }
 
 void MeshStorage::_compute_skeleton(MeshInstance *p_mi, Skeleton *p_sk, uint32_t p_surface) {
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
 	// Add in the bones and weights.
 	glBindBuffer(GL_ARRAY_BUFFER, p_mi->mesh->surfaces[p_surface]->skin_buffer);
 
@@ -1182,9 +1201,8 @@ void MeshStorage::update_mesh_instances() {
 
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
 				GLuint vertex_array_gl = 0;
-				uint64_t mask = ((1 << 10) - 1) << 3; // Mask from ARRAY_FORMAT_COLOR to ARRAY_FORMAT_INDEX.
-				mask = ~mask;
-				uint64_t format = mi->surfaces[i].format_cache & mask; // Format should only have vertex, normal, tangent (as necessary) + compressions.
+				uint64_t mask = RS::ARRAY_FORMAT_VERTEX | RS::ARRAY_FORMAT_NORMAL | RS::ARRAY_FORMAT_VERTEX;
+				uint64_t format = mi->mesh->surfaces[i]->format & mask; // Format should only have vertex, normal, tangent (as necessary).
 				mesh_surface_get_vertex_arrays_and_format(mi->mesh->surfaces[i], format, vertex_array_gl);
 				glBindVertexArray(vertex_array_gl);
 				glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, mi->surfaces[i].vertex_buffers[0]);
@@ -1297,9 +1315,8 @@ void MeshStorage::update_mesh_instances() {
 				skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::INVERSE_TRANSFORM_OFFSET, inverse_transform[2], skeleton_shader.shader_version, variant, specialization);
 
 				GLuint vertex_array_gl = 0;
-				uint64_t mask = ((1 << 10) - 1) << 3; // Mask from ARRAY_FORMAT_COLOR to ARRAY_FORMAT_INDEX.
-				mask = ~mask;
-				uint64_t format = mi->surfaces[i].format_cache & mask; // Format should only have vertex, normal, tangent (as necessary) + compressions.
+				uint64_t mask = RS::ARRAY_FORMAT_VERTEX | RS::ARRAY_FORMAT_NORMAL | RS::ARRAY_FORMAT_VERTEX;
+				uint64_t format = mi->mesh->surfaces[i]->format & mask; // Format should only have vertex, normal, tangent (as necessary).
 				mesh_surface_get_vertex_arrays_and_format(mi->mesh->surfaces[i], format, vertex_array_gl);
 				glBindVertexArray(vertex_array_gl);
 				_compute_skeleton(mi, sk, i);
