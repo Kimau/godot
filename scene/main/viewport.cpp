@@ -3518,7 +3518,7 @@ Control *Viewport::gui_get_focus_owner() const {
 	return gui.key_focus;
 }
 
-Control* Viewport::gui_get_mouse_over() const {
+Control *Viewport::gui_get_mouse_over() const {
 	ERR_READ_THREAD_GUARD_V(nullptr);
 	return gui.mouse_over;
 }
