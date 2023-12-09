@@ -131,11 +131,8 @@
 		<method name="gui_get_mouse_over" qualifiers="const">
 			<return type="Control" />
 			<description>
-				Returns the [Control] that the mouse is currently hovering over in this viewport. 
-				If no [Control] has the cursor, returns null.
-
-				This value is always [Control] which is the has the mouse, typically the leaf node or deepest level of the tree which claims focus.
-				This is very useful when used together with [method Node.is_ancestor_of] to find if the mouse is within a control group.
+				Returns the [Control] that the mouse is currently hovering over in this viewport. If no [Control] has the cursor, returns null.
+				This value is always [Control] which is the has the mouse, typically the leaf node or deepest level of the tree which claims focus. This is very useful when used together with [method Node.is_ancestor_of] to find if the mouse is within a control group.
 			</description>
 		</method>
 		<method name="gui_is_drag_successful" qualifiers="const">
