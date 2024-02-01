@@ -143,9 +143,15 @@ void Input::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_use_accumulated_input", "enable"), &Input::set_use_accumulated_input);
 	ClassDB::bind_method(D_METHOD("is_using_accumulated_input"), &Input::is_using_accumulated_input);
 	ClassDB::bind_method(D_METHOD("flush_buffered_events"), &Input::flush_buffered_events);
+	ClassDB::bind_method(D_METHOD("set_emulate_mouse_from_touch", "enable"), &Input::set_emulate_mouse_from_touch);
+	ClassDB::bind_method(D_METHOD("is_emulating_mouse_from_touch"), &Input::is_emulating_mouse_from_touch);
+	ClassDB::bind_method(D_METHOD("set_emulate_touch_from_mouse", "enable"), &Input::set_emulate_touch_from_mouse);
+	ClassDB::bind_method(D_METHOD("is_emulating_touch_from_mouse"), &Input::is_emulating_touch_from_mouse);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_mode"), "set_mouse_mode", "get_mouse_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_accumulated_input"), "set_use_accumulated_input", "is_using_accumulated_input");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "emulate_mouse_from_touch"), "set_emulate_mouse_from_touch", "is_emulating_mouse_from_touch");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "emulate_touch_from_mouse"), "set_emulate_touch_from_mouse", "is_emulating_touch_from_mouse");
 
 	BIND_ENUM_CONSTANT(MOUSE_MODE_VISIBLE);
 	BIND_ENUM_CONSTANT(MOUSE_MODE_HIDDEN);
@@ -192,6 +198,7 @@ void Input::get_argument_options(const StringName &p_function, int p_idx, List<S
 			r_options->push_back(name.quote());
 		}
 	}
+	Object::get_argument_options(p_function, p_idx, r_options);
 }
 
 void Input::VelocityTrack::update(const Vector2 &p_delta_p) {
@@ -858,6 +865,8 @@ Point2i Input::warp_mouse_motion(const Ref<InputEventMouseMotion> &p_motion, con
 }
 
 void Input::action_press(const StringName &p_action, float p_strength) {
+	ERR_FAIL_COND_MSG(!InputMap::get_singleton()->has_action(p_action), InputMap::get_singleton()->suggest_actions(p_action));
+
 	// Create or retrieve existing action.
 	ActionState &action_state = action_states[p_action];
 
@@ -872,6 +881,8 @@ void Input::action_press(const StringName &p_action, float p_strength) {
 }
 
 void Input::action_release(const StringName &p_action) {
+	ERR_FAIL_COND_MSG(!InputMap::get_singleton()->has_action(p_action), InputMap::get_singleton()->suggest_actions(p_action));
+
 	// Create or retrieve existing action.
 	ActionState &action_state = action_states[p_action];
 	action_state.cache.pressed = 0;
@@ -1512,7 +1523,7 @@ void Input::add_joy_mapping(String p_mapping, bool p_update_existing) {
 	parse_mapping(p_mapping);
 	if (p_update_existing) {
 		Vector<String> entry = p_mapping.split(",");
-		String uid = entry[0];
+		const String &uid = entry[0];
 		for (KeyValue<int, Joypad> &E : joy_names) {
 			Joypad &joy = E.value;
 			if (joy.uid == uid) {

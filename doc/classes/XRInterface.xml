@@ -119,7 +119,7 @@
 			<param index="0" name="mode" type="int" enum="XRInterface.EnvironmentBlendMode" />
 			<description>
 				Sets the active environment blend mode.
-				[param mode] is the [enum XRInterface.EnvironmentBlendMode] starting with the next frame.
+				[param mode] is the environment blend mode starting with the next frame.
 				[b]Note:[/b] Not all runtimes support all environment blend modes, so it is important to check this at startup. For example:
 				[codeblock]
 				                func _ready():
@@ -256,7 +256,7 @@
 			Player is free to move around, full positional tracking.
 		</constant>
 		<constant name="XR_PLAY_AREA_STAGE" value="4" enum="PlayAreaMode">
-			Same as [constant XR_PLAY_AREA_ROOMSCALE] but origin point is fixed to the center of the physical space, [method XRServer.center_on_hmd] disabled.
+			Same as [constant XR_PLAY_AREA_ROOMSCALE] but origin point is fixed to the center of the physical space. In this mode, system-level recentering may be disabled, requiring the use of [method XRServer.center_on_hmd].
 		</constant>
 		<constant name="XR_ENV_BLEND_MODE_OPAQUE" value="0" enum="EnvironmentBlendMode">
 			Opaque blend mode. This is typically used for VR devices.

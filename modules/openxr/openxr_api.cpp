@@ -46,11 +46,11 @@
 #include "openxr_platform_inc.h"
 
 #ifdef VULKAN_ENABLED
-#include "extensions/openxr_vulkan_extension.h"
+#include "extensions/platform/openxr_vulkan_extension.h"
 #endif
 
 #if defined(GLES3_ENABLED) && !defined(MACOS_ENABLED)
-#include "extensions/openxr_opengl_extension.h"
+#include "extensions/platform/openxr_opengl_extension.h"
 #endif
 
 #include "extensions/openxr_composition_layer_depth_extension.h"
@@ -87,7 +87,7 @@ String OpenXRAPI::get_default_action_map_resource_name() {
 	return name;
 }
 
-String OpenXRAPI::get_error_string(XrResult result) {
+String OpenXRAPI::get_error_string(XrResult result) const {
 	if (XR_SUCCEEDED(result)) {
 		return String("Succeeded");
 	}
@@ -665,13 +665,6 @@ bool OpenXRAPI::load_supported_reference_spaces() {
 		print_verbose(String("OpenXR: Found supported reference space ") + OpenXRUtil::get_reference_space_name(supported_reference_spaces[i]));
 	}
 
-	// Check value we loaded at startup...
-	if (!is_reference_space_supported(reference_space)) {
-		print_verbose(String("OpenXR: ") + OpenXRUtil::get_reference_space_name(reference_space) + String(" isn't supported, defaulting to ") + OpenXRUtil::get_reference_space_name(supported_reference_spaces[0]));
-
-		reference_space = supported_reference_spaces[0];
-	}
-
 	return true;
 }
 
@@ -699,16 +692,31 @@ bool OpenXRAPI::setup_spaces() {
 
 	// create play space
 	{
-		if (!is_reference_space_supported(reference_space)) {
-			print_line("OpenXR: reference space ", OpenXRUtil::get_reference_space_name(reference_space), " is not supported.");
-			return false;
+		emulating_local_floor = false;
+
+		if (is_reference_space_supported(requested_reference_space)) {
+			reference_space = requested_reference_space;
+		} else if (requested_reference_space == XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT && is_reference_space_supported(XR_REFERENCE_SPACE_TYPE_STAGE)) {
+			print_verbose("OpenXR: LOCAL_FLOOR space isn't supported, emulating using STAGE and LOCAL spaces.");
+
+			reference_space = XR_REFERENCE_SPACE_TYPE_LOCAL;
+			emulating_local_floor = true;
+
+			// We'll use the STAGE space to get the floor height, but we can't do that until
+			// after xrWaitFrame(), so just set this flag for now.
+			should_reset_emulated_floor_height = true;
+
+		} else {
+			// Fallback on LOCAL, which all OpenXR runtimes are required to support.
+			print_verbose(String("OpenXR: ") + OpenXRUtil::get_reference_space_name(requested_reference_space) + String(" isn't supported, defaulting to LOCAL space."));
+			reference_space = XR_REFERENCE_SPACE_TYPE_LOCAL;
 		}
 
 		XrReferenceSpaceCreateInfo play_space_create_info = {
 			XR_TYPE_REFERENCE_SPACE_CREATE_INFO, // type
 			nullptr, // next
 			reference_space, // referenceSpaceType
-			identityPose // poseInReferenceSpace
+			identityPose, // poseInReferenceSpace
 		};
 
 		result = xrCreateReferenceSpace(session, &play_space_create_info, &play_space);
@@ -738,6 +746,80 @@ bool OpenXRAPI::setup_spaces() {
 			return false;
 		}
 	}
+
+	return true;
+}
+
+bool OpenXRAPI::reset_emulated_floor_height() {
+	ERR_FAIL_COND_V(!emulating_local_floor, false);
+
+	// This is based on the example code in the OpenXR spec which shows how to
+	// emulate LOCAL_FLOOR if it's not supported.
+	// See: https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#XR_EXT_local_floor
+
+	XrResult result;
+
+	XrPosef identityPose = {
+		{ 0.0, 0.0, 0.0, 1.0 },
+		{ 0.0, 0.0, 0.0 }
+	};
+
+	XrSpace local_space = XR_NULL_HANDLE;
+	XrSpace stage_space = XR_NULL_HANDLE;
+
+	XrReferenceSpaceCreateInfo create_info = {
+		XR_TYPE_REFERENCE_SPACE_CREATE_INFO, // type
+		nullptr, // next
+		XR_REFERENCE_SPACE_TYPE_LOCAL, // referenceSpaceType
+		identityPose, // poseInReferenceSpace
+	};
+
+	result = xrCreateReferenceSpace(session, &create_info, &local_space);
+	if (XR_FAILED(result)) {
+		print_line("OpenXR: Failed to create LOCAL space in order to emulate LOCAL_FLOOR [", get_error_string(result), "]");
+		return false;
+	}
+
+	create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
+	result = xrCreateReferenceSpace(session, &create_info, &stage_space);
+	if (XR_FAILED(result)) {
+		print_line("OpenXR: Failed to create STAGE space in order to emulate LOCAL_FLOOR [", get_error_string(result), "]");
+		xrDestroySpace(local_space);
+		return false;
+	}
+
+	XrSpaceLocation stage_location = {
+		XR_TYPE_SPACE_LOCATION, // type
+		nullptr, // next
+		0, // locationFlags
+		identityPose, // pose
+	};
+
+	result = xrLocateSpace(stage_space, local_space, get_next_frame_time(), &stage_location);
+
+	xrDestroySpace(local_space);
+	xrDestroySpace(stage_space);
+
+	if (XR_FAILED(result)) {
+		print_line("OpenXR: Failed to locate STAGE space in LOCAL space, in order to emulate LOCAL_FLOOR [", get_error_string(result), "]");
+		return false;
+	}
+
+	XrSpace new_play_space;
+	create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+	create_info.poseInReferenceSpace.position.y = stage_location.pose.position.y;
+	result = xrCreateReferenceSpace(session, &create_info, &new_play_space);
+	if (XR_FAILED(result)) {
+		print_line("OpenXR: Failed to recreate emulated LOCAL_FLOOR play space with latest floor estimate [", get_error_string(result), "]");
+		return false;
+	}
+
+	xrDestroySpace(play_space);
+	play_space = new_play_space;
+
+	// If we've made it this far, it means we can properly emulate LOCAL_FLOOR, so we'll
+	// report that as the reference space to the outside world.
+	reference_space = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
 
 	return true;
 }
@@ -1180,10 +1262,10 @@ void OpenXRAPI::set_view_configuration(XrViewConfigurationType p_view_configurat
 	view_configuration = p_view_configuration;
 }
 
-void OpenXRAPI::set_reference_space(XrReferenceSpaceType p_reference_space) {
+void OpenXRAPI::set_requested_reference_space(XrReferenceSpaceType p_requested_reference_space) {
 	ERR_FAIL_COND(is_initialized());
 
-	reference_space = p_reference_space;
+	requested_reference_space = p_requested_reference_space;
 }
 
 void OpenXRAPI::set_submit_depth_buffer(bool p_submit_depth_buffer) {
@@ -1261,6 +1343,7 @@ bool OpenXRAPI::resolve_instance_openxr_symbols() {
 	OPENXR_API_INIT_XR_FUNC_V(xrGetActionStateFloat);
 	OPENXR_API_INIT_XR_FUNC_V(xrGetActionStateVector2f);
 	OPENXR_API_INIT_XR_FUNC_V(xrGetCurrentInteractionProfile);
+	OPENXR_API_INIT_XR_FUNC_V(xrGetReferenceSpaceBoundsRect);
 	OPENXR_API_INIT_XR_FUNC_V(xrGetSystem);
 	OPENXR_API_INIT_XR_FUNC_V(xrGetSystemProperties);
 	OPENXR_API_INIT_XR_FUNC_V(xrLocateViews);
@@ -1412,6 +1495,10 @@ void OpenXRAPI::register_extension_wrapper(OpenXRExtensionWrapper *p_extension_w
 
 void OpenXRAPI::unregister_extension_wrapper(OpenXRExtensionWrapper *p_extension_wrapper) {
 	registered_extension_wrappers.erase(p_extension_wrapper);
+}
+
+const Vector<OpenXRExtensionWrapper *> &OpenXRAPI::get_registered_extension_wrappers() {
+	return registered_extension_wrappers;
 }
 
 void OpenXRAPI::register_extension_metadata() {
@@ -1627,6 +1714,9 @@ bool OpenXRAPI::poll_events() {
 				XrEventDataReferenceSpaceChangePending *event = (XrEventDataReferenceSpaceChangePending *)&runtimeEvent;
 
 				print_verbose(String("OpenXR EVENT: reference space type ") + OpenXRUtil::get_reference_space_name(event->referenceSpaceType) + " change pending!");
+				if (emulating_local_floor) {
+					should_reset_emulated_floor_height = true;
+				}
 				if (event->poseValid && xr_interface) {
 					xr_interface->on_pose_recentered();
 				}
@@ -1780,6 +1870,11 @@ void OpenXRAPI::pre_render() {
 		// display period more then 0.5 seconds? must be wrong data
 		print_verbose(String("OpenXR resetting invalid display period ") + rtos(frame_state.predictedDisplayPeriod));
 		frame_state.predictedDisplayPeriod = 0;
+	}
+
+	if (unlikely(should_reset_emulated_floor_height)) {
+		reset_emulated_floor_height();
+		should_reset_emulated_floor_height = false;
 	}
 
 	for (OpenXRExtensionWrapper *wrapper : registered_extension_wrappers) {
@@ -2072,6 +2167,25 @@ void OpenXRAPI::set_foveation_dynamic(bool p_foveation_dynamic) {
 	}
 }
 
+Size2 OpenXRAPI::get_play_space_bounds() const {
+	Size2 ret;
+
+	ERR_FAIL_COND_V(session == XR_NULL_HANDLE, Size2());
+
+	XrExtent2Df extents;
+
+	XrResult result = xrGetReferenceSpaceBoundsRect(session, reference_space, &extents);
+	if (XR_FAILED(result)) {
+		print_line("OpenXR: failed to get play space bounds! [", get_error_string(result), "]");
+		return ret;
+	}
+
+	ret.width = extents.width;
+	ret.height = extents.height;
+
+	return ret;
+}
+
 OpenXRAPI::OpenXRAPI() {
 	// OpenXRAPI is only constructed if OpenXR is enabled.
 	singleton = this;
@@ -2116,10 +2230,13 @@ OpenXRAPI::OpenXRAPI() {
 		int reference_space_setting = GLOBAL_GET("xr/openxr/reference_space");
 		switch (reference_space_setting) {
 			case 0: {
-				reference_space = XR_REFERENCE_SPACE_TYPE_LOCAL;
+				requested_reference_space = XR_REFERENCE_SPACE_TYPE_LOCAL;
 			} break;
 			case 1: {
-				reference_space = XR_REFERENCE_SPACE_TYPE_STAGE;
+				requested_reference_space = XR_REFERENCE_SPACE_TYPE_STAGE;
+			} break;
+			case 2: {
+				requested_reference_space = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
 			} break;
 			default:
 				break;
