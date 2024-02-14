@@ -45,7 +45,7 @@
 #include "servers/rendering/rendering_device.h"
 
 #if defined(VULKAN_ENABLED)
-#import "vulkan_context_ios.h"
+#import "rendering_context_driver_vulkan_ios.h"
 #endif
 #endif
 
@@ -129,6 +129,9 @@ public:
 
 	void on_focus_out();
 	void on_focus_in();
+
+	void on_enter_background();
+	void on_exit_background();
 };
 
 #endif // IOS_ENABLED
