@@ -35,6 +35,7 @@
 
 #include "core/config/project_settings.h"
 #include "core/io/marshalls.h"
+#include "core/version.h"
 #include "drivers/png/png_driver_common.h"
 #include "main/main.h"
 #include "scene/resources/atlas_texture.h"
@@ -51,6 +52,9 @@
 
 #include <avrt.h>
 #include <dwmapi.h>
+#include <propkey.h>
+#include <propvarutil.h>
+#include <shellapi.h>
 #include <shlwapi.h>
 #include <shobjidl.h>
 #include <wbemcli.h>
@@ -759,24 +763,49 @@ Ref<Image> DisplayServerWindows::clipboard_get_image() const {
 
 			if (ptr != NULL) {
 				BITMAPINFOHEADER *info = &ptr->bmiHeader;
-				PackedByteArray pba;
+				void *dib_bits = (void *)(ptr->bmiColors);
 
-				for (LONG y = info->biHeight - 1; y > -1; y--) {
-					for (LONG x = 0; x < info->biWidth; x++) {
-						tagRGBQUAD *rgbquad = ptr->bmiColors + (info->biWidth * y) + x;
-						pba.append(rgbquad->rgbRed);
-						pba.append(rgbquad->rgbGreen);
-						pba.append(rgbquad->rgbBlue);
-						pba.append(rgbquad->rgbReserved);
+				// Draw DIB image to temporary DC surface and read it back as BGRA8.
+				HDC dc = GetDC(0);
+				if (dc) {
+					HDC hdc = CreateCompatibleDC(dc);
+					if (hdc) {
+						HBITMAP hbm = CreateCompatibleBitmap(dc, info->biWidth, abs(info->biHeight));
+						if (hbm) {
+							SelectObject(hdc, hbm);
+							SetDIBitsToDevice(hdc, 0, 0, info->biWidth, abs(info->biHeight), 0, 0, 0, abs(info->biHeight), dib_bits, ptr, DIB_RGB_COLORS);
+
+							BITMAPINFO bmp_info = {};
+							bmp_info.bmiHeader.biSize = sizeof(bmp_info.bmiHeader);
+							bmp_info.bmiHeader.biWidth = info->biWidth;
+							bmp_info.bmiHeader.biHeight = -abs(info->biHeight);
+							bmp_info.bmiHeader.biPlanes = 1;
+							bmp_info.bmiHeader.biBitCount = 32;
+							bmp_info.bmiHeader.biCompression = BI_RGB;
+
+							Vector<uint8_t> img_data;
+							img_data.resize(info->biWidth * abs(info->biHeight) * 4);
+							GetDIBits(hdc, hbm, 0, abs(info->biHeight), img_data.ptrw(), &bmp_info, DIB_RGB_COLORS);
+
+							uint8_t *wr = (uint8_t *)img_data.ptrw();
+							for (int i = 0; i < info->biWidth * abs(info->biHeight); i++) {
+								SWAP(wr[i * 4 + 0], wr[i * 4 + 2]); // Swap B and R.
+								if (info->biBitCount != 32) {
+									wr[i * 4 + 3] = 255; // Set A to solid if it's not in the source image.
+								}
+							}
+							image = Image::create_from_data(info->biWidth, abs(info->biHeight), false, Image::Format::FORMAT_RGBA8, img_data);
+
+							DeleteObject(hbm);
+						}
+						DeleteDC(hdc);
 					}
+					ReleaseDC(NULL, dc);
 				}
-				image = Image::create_from_data(info->biWidth, info->biHeight, false, Image::Format::FORMAT_RGBA8, pba);
-
 				GlobalUnlock(mem);
 			}
 		}
 	}
-
 	CloseClipboard();
 
 	return image;
@@ -1153,7 +1182,7 @@ Ref<Image> DisplayServerWindows::screen_get_image(int p_screen) const {
 
 				uint8_t *wr = (uint8_t *)img_data.ptrw();
 				for (int i = 0; i < width * height; i++) {
-					SWAP(wr[i * 4 + 0], wr[i * 4 + 2]);
+					SWAP(wr[i * 4 + 0], wr[i * 4 + 2]); // Swap B and R.
 				}
 				img = Image::create_from_data(width, height, false, Image::FORMAT_RGBA8, img_data);
 
@@ -1349,6 +1378,15 @@ void DisplayServerWindows::delete_sub_window(WindowID p_window) {
 	popup_close(p_window);
 
 	WindowData &wd = windows[p_window];
+
+	IPropertyStore *prop_store;
+	HRESULT hr = SHGetPropertyStoreForWindow(wd.hWnd, IID_IPropertyStore, (void **)&prop_store);
+	if (hr == S_OK) {
+		PROPVARIANT val;
+		PropVariantInit(&val);
+		prop_store->SetValue(PKEY_AppUserModel_ID, val);
+		prop_store->Release();
+	}
 
 	while (wd.transient_children.size()) {
 		window_set_transient(*wd.transient_children.begin(), INVALID_WINDOW_ID);
@@ -3452,6 +3490,10 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			}
 			if (wParam != WA_INACTIVE) {
 				track_mouse_leave_event(hWnd);
+
+				if (!IsIconic(hWnd)) {
+					SetFocus(hWnd);
+				}
 			}
 			return 0; // Return to the message loop.
 		} break;
@@ -4927,6 +4969,33 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 		wd.last_pressure_update = 0;
 		wd.last_tilt = Vector2();
 
+		IPropertyStore *prop_store;
+		HRESULT hr = SHGetPropertyStoreForWindow(wd.hWnd, IID_IPropertyStore, (void **)&prop_store);
+		if (hr == S_OK) {
+			PROPVARIANT val;
+			String appname;
+			if (Engine::get_singleton()->is_editor_hint()) {
+				appname = "Godot.GodotEditor." + String(VERSION_BRANCH);
+			} else {
+				String name = GLOBAL_GET("application/config/name");
+				String version = GLOBAL_GET("application/config/version");
+				if (version.is_empty()) {
+					version = "0";
+				}
+				String clean_app_name = name.to_pascal_case();
+				for (int i = 0; i < clean_app_name.length(); i++) {
+					if (!is_ascii_alphanumeric_char(clean_app_name[i]) && clean_app_name[i] != '_' && clean_app_name[i] != '.') {
+						clean_app_name[i] = '_';
+					}
+				}
+				clean_app_name = clean_app_name.substr(0, 120 - version.length()).trim_suffix(".");
+				appname = "Godot." + clean_app_name + "." + version;
+			}
+			InitPropVariantFromString((PCWSTR)appname.utf16().get_data(), &val);
+			prop_store->SetValue(PKEY_AppUserModel_ID, val);
+			prop_store->Release();
+		}
+
 		// IME.
 		wd.im_himc = ImmGetContext(wd.hWnd);
 		ImmAssociateContext(wd.hWnd, (HIMC)0);
@@ -5325,6 +5394,26 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 	}
 #endif
 
+	String appname;
+	if (Engine::get_singleton()->is_editor_hint()) {
+		appname = "Godot.GodotEditor." + String(VERSION_BRANCH);
+	} else {
+		String name = GLOBAL_GET("application/config/name");
+		String version = GLOBAL_GET("application/config/version");
+		if (version.is_empty()) {
+			version = "0";
+		}
+		String clean_app_name = name.to_pascal_case();
+		for (int i = 0; i < clean_app_name.length(); i++) {
+			if (!is_ascii_alphanumeric_char(clean_app_name[i]) && clean_app_name[i] != '_' && clean_app_name[i] != '.') {
+				clean_app_name[i] = '_';
+			}
+		}
+		clean_app_name = clean_app_name.substr(0, 120 - version.length()).trim_suffix(".");
+		appname = "Godot." + clean_app_name + "." + version;
+	}
+	SetCurrentProcessExplicitAppUserModelID((PCWSTR)appname.utf16().get_data());
+
 	mouse_monitor = SetWindowsHookEx(WH_MOUSE, ::MouseProc, nullptr, GetCurrentThreadId());
 
 	Point2i window_position;
@@ -5450,7 +5539,7 @@ DisplayServerWindows::~DisplayServerWindows() {
 	cursors_cache.clear();
 
 	// Destroy all status indicators.
-	for (HashMap<IndicatorID, IndicatorData>::Iterator E = indicators.begin(); E;) {
+	for (HashMap<IndicatorID, IndicatorData>::Iterator E = indicators.begin(); E; ++E) {
 		NOTIFYICONDATAW ndat;
 		ZeroMemory(&ndat, sizeof(NOTIFYICONDATAW));
 		ndat.cbSize = sizeof(NOTIFYICONDATAW);

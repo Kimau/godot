@@ -37,11 +37,11 @@
 #include "core/templates/sort_array.h"
 #include "scene/2d/audio_listener_2d.h"
 #include "scene/2d/camera_2d.h"
-#include "scene/2d/collision_object_2d.h"
+#include "scene/2d/physics/collision_object_2d.h"
 #ifndef _3D_DISABLED
 #include "scene/3d/audio_listener_3d.h"
 #include "scene/3d/camera_3d.h"
-#include "scene/3d/collision_object_3d.h"
+#include "scene/3d/physics/collision_object_3d.h"
 #include "scene/3d/world_environment.h"
 #endif // _3D_DISABLED
 #include "scene/gui/control.h"
@@ -1383,6 +1383,13 @@ Ref<InputEvent> Viewport::_make_input_local(const Ref<InputEvent> &ev) {
 	}
 
 	Transform2D ai = get_final_transform().affine_inverse();
+	Ref<InputEventMouse> me = ev;
+	if (me.is_valid()) {
+		me = me->xformed_by(ai);
+		// For InputEventMouse, the global position is not adjusted by ev->xformed_by() and needs to be set separately.
+		me->set_global_position(me->get_position());
+		return me;
+	}
 	return ev->xformed_by(ai);
 }
 
@@ -1517,7 +1524,6 @@ void Viewport::_gui_show_tooltip() {
 	if (!base_tooltip) {
 		gui.tooltip_label = memnew(Label);
 		gui.tooltip_label->set_theme_type_variation(SNAME("TooltipLabel"));
-		gui.tooltip_label->set_auto_translate(gui.tooltip_control->is_auto_translating());
 		gui.tooltip_label->set_text(gui.tooltip_text);
 		base_tooltip = gui.tooltip_label;
 		panel->connect("mouse_entered", callable_mp(this, &Viewport::_gui_cancel_tooltip));
@@ -3511,9 +3517,9 @@ Variant Viewport::gui_get_drag_data() const {
 	return gui.drag_data;
 }
 
-Array Viewport::get_configuration_warnings() const {
-	ERR_MAIN_THREAD_GUARD_V(Array());
-	Array warnings = Node::get_configuration_warnings();
+PackedStringArray Viewport::get_configuration_warnings() const {
+	ERR_MAIN_THREAD_GUARD_V(PackedStringArray());
+	PackedStringArray warnings = Node::get_configuration_warnings();
 
 	if (size.x <= 1 || size.y <= 1) {
 		warnings.push_back(RTR("The Viewport size must be greater than or equal to 2 pixels on both dimensions to render anything."));
@@ -4763,7 +4769,7 @@ void Viewport::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_debanding"), "set_use_debanding", "is_using_debanding");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_occlusion_culling"), "set_use_occlusion_culling", "is_using_occlusion_culling");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "mesh_lod_threshold", PROPERTY_HINT_RANGE, "0,1024,0.1"), "set_mesh_lod_threshold", "get_mesh_lod_threshold");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_draw", PROPERTY_HINT_ENUM, "Disabled,Unshaded,Lighting,Overdraw,Wireframe"), "set_debug_draw", "get_debug_draw");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_draw", PROPERTY_HINT_ENUM, "Disabled,Unshaded,Lighting,Overdraw,Wireframe,Normal Buffer,VoxelGI Albedo,VoxelGI Lighting,VoxelGI Emission,Shadow Atlas,Directional Shadow Map,Scene Luminance,SSAO,SSIL,Directional Shadow Splits,Decal Atlas,SDFGI Cascades,SDFGI Probes,VoxelGI/SDFGI Buffer,Disable Mesh LOD,OmniLight3D Cluster,SpotLight3D Cluster,Decal Cluster,ReflectionProbe Cluster,Occlusion Culling Buffer,Motion Vectors,Internal Buffer"), "set_debug_draw", "get_debug_draw");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_hdr_2d"), "set_use_hdr_2d", "is_using_hdr_2d");
 
 #ifndef _3D_DISABLED
@@ -4772,10 +4778,10 @@ void Viewport::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "scaling_3d_scale", PROPERTY_HINT_RANGE, "0.25,2.0,0.01"), "set_scaling_3d_scale", "get_scaling_3d_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "texture_mipmap_bias", PROPERTY_HINT_RANGE, "-2,2,0.001"), "set_texture_mipmap_bias", "get_texture_mipmap_bias");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fsr_sharpness", PROPERTY_HINT_RANGE, "0,2,0.1"), "set_fsr_sharpness", "get_fsr_sharpness");
-#endif
 	ADD_GROUP("Variable Rate Shading", "vrs_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "vrs_mode", PROPERTY_HINT_ENUM, "Disabled,Texture,Depth buffer,XR"), "set_vrs_mode", "get_vrs_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "vrs_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_vrs_texture", "get_vrs_texture");
+#endif
 	ADD_GROUP("Canvas Items", "canvas_item_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "canvas_item_default_texture_filter", PROPERTY_HINT_ENUM, "Nearest,Linear,Linear Mipmap,Nearest Mipmap"), "set_default_canvas_item_texture_filter", "get_default_canvas_item_texture_filter");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "canvas_item_default_texture_repeat", PROPERTY_HINT_ENUM, "Disabled,Enabled,Mirror"), "set_default_canvas_item_texture_repeat", "get_default_canvas_item_texture_repeat");

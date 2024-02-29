@@ -1360,6 +1360,7 @@ void TileMapLayer::_build_runtime_update_tile_data() {
 	if (!forced_cleanup) {
 		if (tile_map_node->GDVIRTUAL_IS_OVERRIDDEN(_use_tile_data_runtime_update) && tile_map_node->GDVIRTUAL_IS_OVERRIDDEN(_tile_data_runtime_update)) {
 			if (_runtime_update_tile_data_was_cleaned_up || dirty.flags[DIRTY_FLAGS_LAYER_GROUP_TILE_SET]) {
+				_runtime_update_needs_all_cells_cleaned_up = true;
 				for (KeyValue<Vector2i, CellData> &E : tile_map) {
 					_build_runtime_update_tile_data_for_cell(E.value);
 				}
@@ -1414,14 +1415,24 @@ void TileMapLayer::_build_runtime_update_tile_data_for_cell(CellData &r_cell_dat
 }
 
 void TileMapLayer::_clear_runtime_update_tile_data() {
-	for (SelfList<CellData> *cell_data_list_element = dirty.cell_list.first(); cell_data_list_element; cell_data_list_element = cell_data_list_element->next()) {
-		CellData &cell_data = *cell_data_list_element->self();
-
-		// Clear the runtime tile data.
-		if (cell_data.runtime_tile_data_cache) {
-			memdelete(cell_data.runtime_tile_data_cache);
-			cell_data.runtime_tile_data_cache = nullptr;
+	if (_runtime_update_needs_all_cells_cleaned_up) {
+		for (KeyValue<Vector2i, CellData> &E : tile_map) {
+			_clear_runtime_update_tile_data_for_cell(E.value);
 		}
+		_runtime_update_needs_all_cells_cleaned_up = false;
+	} else {
+		for (SelfList<CellData> *cell_data_list_element = dirty.cell_list.first(); cell_data_list_element; cell_data_list_element = cell_data_list_element->next()) {
+			CellData &r_cell_data = *cell_data_list_element->self();
+			_clear_runtime_update_tile_data_for_cell(r_cell_data);
+		}
+	}
+}
+
+void TileMapLayer::_clear_runtime_update_tile_data_for_cell(CellData &r_cell_data) {
+	// Clear the runtime tile data.
+	if (r_cell_data.runtime_tile_data_cache) {
+		memdelete(r_cell_data.runtime_tile_data_cache);
+		r_cell_data.runtime_tile_data_cache = nullptr;
 	}
 }
 
@@ -1614,8 +1625,11 @@ void TileMapLayer::_queue_internal_update() {
 	if (pending_update) {
 		return;
 	}
-	pending_update = true;
-	callable_mp(this, &TileMapLayer::_deferred_internal_update).call_deferred();
+	// Don't update when outside the tree, it doesn't do anything useful, and causes threading problems.
+	if (is_inside_tree()) {
+		pending_update = true;
+		callable_mp(this, &TileMapLayer::_deferred_internal_update).call_deferred();
+	}
 }
 
 void TileMapLayer::_deferred_internal_update() {
@@ -1632,7 +1646,7 @@ void TileMapLayer::_deferred_internal_update() {
 
 void TileMapLayer::_internal_update() {
 	// Find TileData that need a runtime modification.
-	// This may add cells to the dirty list is a runtime modification has been notified.
+	// This may add cells to the dirty list if a runtime modification has been notified.
 	_build_runtime_update_tile_data();
 
 	// Update all subsystems.
@@ -1655,7 +1669,7 @@ void TileMapLayer::_internal_update() {
 	Vector<Vector2i> to_delete;
 	for (SelfList<CellData> *cell_data_list_element = dirty.cell_list.first(); cell_data_list_element; cell_data_list_element = cell_data_list_element->next()) {
 		CellData &cell_data = *cell_data_list_element->self();
-		// Select the the cell from tile_map if it is invalid.
+		// Select the cell from tile_map if it is invalid.
 		if (cell_data.cell.source_id == TileSet::INVALID_SOURCE) {
 			to_delete.push_back(cell_data.coords);
 		}
@@ -1684,7 +1698,8 @@ void TileMapLayer::_notification(int p_what) {
 
 		case NOTIFICATION_EXIT_TREE: {
 			dirty.flags[DIRTY_FLAGS_LAYER_IN_TREE] = true;
-			_queue_internal_update();
+			// Update immediately on exiting.
+			update_internals();
 		} break;
 
 		case TileMap::NOTIFICATION_ENTER_CANVAS: {
@@ -1694,7 +1709,8 @@ void TileMapLayer::_notification(int p_what) {
 
 		case TileMap::NOTIFICATION_EXIT_CANVAS: {
 			dirty.flags[DIRTY_FLAGS_LAYER_IN_CANVAS] = true;
-			_queue_internal_update();
+			// Update immediately on exiting.
+			update_internals();
 		} break;
 
 		case TileMap::NOTIFICATION_VISIBILITY_CHANGED: {
