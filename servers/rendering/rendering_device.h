@@ -797,6 +797,8 @@ private:
 #endif
 
 public:
+	RenderingContextDriver *get_context_driver() const { return context; }
+
 	const RDD::Capabilities &get_device_capabilities() const { return driver->get_capabilities(); }
 
 	bool has_feature(const Features p_feature) const;
@@ -1048,6 +1050,7 @@ private:
 			uint32_t pipeline_shader_layout_hash = 0;
 			RID vertex_array;
 			RID index_array;
+			uint32_t draw_count = 0;
 		} state;
 
 #ifdef DEBUG_ENABLED
@@ -1149,6 +1152,7 @@ private:
 			uint32_t local_group_size[3] = { 0, 0, 0 };
 			uint8_t push_constant_data[MAX_PUSH_CONSTANT_SIZE] = {};
 			uint32_t push_constant_size = 0;
+			uint32_t dispatch_count = 0;
 		} state;
 
 #ifdef DEBUG_ENABLED
@@ -1261,6 +1265,9 @@ private:
 		// Swap chains prepared for drawing during the frame that must be presented.
 		LocalVector<RDD::SwapChainID> swap_chains_to_present;
 
+		// Extra command buffer pool used for driver workarounds.
+		RDG::CommandBufferPool command_buffer_pool;
+
 		struct Timestamp {
 			String description;
 			uint64_t value = 0;
@@ -1296,7 +1303,7 @@ private:
 	void _stall_for_previous_frames();
 	void _flush_and_stall_for_all_frames();
 
-	template <class T>
+	template <typename T>
 	void _free_rids(T &p_owner, const char *p_type);
 
 #ifdef DEV_ENABLED
@@ -1354,6 +1361,8 @@ public:
 	String get_device_api_name() const;
 	String get_device_api_version() const;
 	String get_device_pipeline_cache_uuid() const;
+
+	bool is_composite_alpha_supported() const;
 
 	uint64_t get_driver_resource(DriverResource p_resource, RID p_rid = RID(), uint64_t p_index = 0);
 

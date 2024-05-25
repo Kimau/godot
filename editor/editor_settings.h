@@ -124,6 +124,8 @@ public:
 	};
 
 	static EditorSettings *get_singleton();
+	static String get_existing_settings_path();
+	static String get_newest_settings_path();
 
 	static void create();
 	void setup_language();
@@ -185,6 +187,10 @@ public:
 	const Array get_builtin_action_overrides(const String &p_name) const;
 
 	void notify_changes();
+
+#ifdef TOOLS_ENABLED
+	virtual void get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const override;
+#endif
 
 	EditorSettings();
 	~EditorSettings();

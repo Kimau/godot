@@ -31,10 +31,11 @@
 #ifndef EDITOR_NODE_H
 #define EDITOR_NODE_H
 
+#include "core/object/script_language.h"
 #include "core/templates/safe_refcount.h"
 #include "editor/editor_data.h"
 #include "editor/editor_folding.h"
-#include "editor/editor_plugin.h"
+#include "editor/plugins/editor_plugin.h"
 
 typedef void (*EditorNodeInitCallback)();
 typedef void (*EditorPluginInitializeCallback)();
@@ -135,7 +136,8 @@ public:
 	enum SceneNameCasing {
 		SCENE_NAME_CASING_AUTO,
 		SCENE_NAME_CASING_PASCAL_CASE,
-		SCENE_NAME_CASING_SNAKE_CASE
+		SCENE_NAME_CASING_SNAKE_CASE,
+		SCENE_NAME_CASING_KEBAB_CASE,
 	};
 
 	struct ExecuteThreadArgs {
@@ -157,6 +159,7 @@ private:
 		FILE_NEW_INHERITED_SCENE,
 		FILE_OPEN_SCENE,
 		FILE_SAVE_SCENE,
+		FILE_SAVE_SCENE_SILENTLY,
 		FILE_SAVE_AS_SCENE,
 		FILE_SAVE_ALL_SCENES,
 		FILE_SAVE_AND_RUN,
@@ -224,7 +227,7 @@ private:
 		HELP_SEARCH,
 		HELP_COMMAND_PALETTE,
 		HELP_DOCS,
-		HELP_QA,
+		HELP_FORUM,
 		HELP_REPORT_A_BUG,
 		HELP_COPY_SYSTEM_INFO,
 		HELP_SUGGEST_A_FEATURE,
@@ -397,8 +400,6 @@ private:
 	EditorFileDialog *file_export_lib = nullptr;
 	EditorFileDialog *file_script = nullptr;
 	EditorFileDialog *file_android_build_source = nullptr;
-	CheckBox *file_export_lib_merge = nullptr;
-	CheckBox *file_export_lib_apply_xforms = nullptr;
 	String current_path;
 	MenuButton *update_spinner = nullptr;
 
@@ -420,6 +421,7 @@ private:
 
 	EditorDockManager *editor_dock_manager = nullptr;
 	Timer *editor_layout_save_delay_timer = nullptr;
+	Timer *scan_changes_timer = nullptr;
 	Button *distraction_free = nullptr;
 
 	EditorBottomPanel *bottom_panel = nullptr;
@@ -570,6 +572,7 @@ private:
 	int _next_unsaved_scene(bool p_valid_filename, int p_start = 0);
 	void _discard_changes(const String &p_str = String());
 	void _scene_tab_closed(int p_tab);
+	void _cancel_close_scene_tab();
 
 	void _inherit_request(String p_file);
 	void _instantiate_request(const Vector<String> &p_files);
@@ -689,7 +692,8 @@ public:
 	static VSplitContainer *get_top_split() { return singleton->top_split; }
 	static EditorBottomPanel *get_bottom_panel() { return singleton->bottom_panel; }
 
-	static String adjust_scene_name_casing(const String &root_name);
+	static String adjust_scene_name_casing(const String &p_root_name);
+	static String adjust_script_name_casing(const String &p_file_name, ScriptLanguage::ScriptNameCasing p_auto_casing);
 
 	static bool has_unsaved_changes() { return singleton->unsaved_cache; }
 	static void disambiguate_filenames(const Vector<String> p_full_paths, Vector<String> &r_filenames);
@@ -868,8 +872,8 @@ public:
 
 	bool is_exiting() const { return exiting; }
 
-	Variant drag_resource(const Ref<Resource> &p_res, Control *p_from);
-	Variant drag_files_and_dirs(const Vector<String> &p_paths, Control *p_from);
+	Dictionary drag_resource(const Ref<Resource> &p_res, Control *p_from);
+	Dictionary drag_files_and_dirs(const Vector<String> &p_paths, Control *p_from);
 
 	void add_tool_menu_item(const String &p_name, const Callable &p_callback);
 	void add_tool_submenu_item(const String &p_name, PopupMenu *p_submenu);

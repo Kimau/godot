@@ -125,12 +125,12 @@ String EditorProfiler::_get_time_as_text(const Metric &m, float p_time, int p_ca
 	const int dmode = display_mode->get_selected();
 
 	if (dmode == DISPLAY_FRAME_TIME) {
-		return TS->format_number(rtos(p_time * 1000).pad_decimals(2)) + " " + RTR("ms");
+		return TS->format_number(rtos(p_time * 1000).pad_decimals(2)) + " " + TTR("ms");
 	} else if (dmode == DISPLAY_AVERAGE_TIME) {
 		if (p_calls == 0) {
-			return TS->format_number("0.00") + " " + RTR("ms");
+			return TS->format_number("0.00") + " " + TTR("ms");
 		} else {
-			return TS->format_number(rtos((p_time / p_calls) * 1000).pad_decimals(2)) + " " + RTR("ms");
+			return TS->format_number(rtos((p_time / p_calls) * 1000).pad_decimals(2)) + " " + TTR("ms");
 		}
 	} else if (dmode == DISPLAY_FRAME_PERCENT) {
 		return _get_percent_txt(p_time, m.frame_time);
@@ -614,12 +614,12 @@ EditorProfiler::EditorProfiler() {
 	activate->set_toggle_mode(true);
 	activate->set_disabled(true);
 	activate->set_text(TTR("Start"));
-	activate->connect("pressed", callable_mp(this, &EditorProfiler::_activate_pressed));
+	activate->connect(SceneStringName(pressed), callable_mp(this, &EditorProfiler::_activate_pressed));
 	hb->add_child(activate);
 
 	clear_button = memnew(Button);
 	clear_button->set_text(TTR("Clear"));
-	clear_button->connect("pressed", callable_mp(this, &EditorProfiler::_clear_pressed));
+	clear_button->connect(SceneStringName(pressed), callable_mp(this, &EditorProfiler::_clear_pressed));
 	clear_button->set_disabled(true);
 	hb->add_child(clear_button);
 
@@ -647,8 +647,9 @@ EditorProfiler::EditorProfiler() {
 	hb->add_child(display_time);
 
 	display_internal_profiles = memnew(CheckButton(TTR("Display internal functions")));
+	display_internal_profiles->set_visible(EDITOR_GET("debugger/profile_native_calls"));
 	display_internal_profiles->set_pressed(false);
-	display_internal_profiles->connect("pressed", callable_mp(this, &EditorProfiler::_internal_profiles_pressed));
+	display_internal_profiles->connect(SceneStringName(pressed), callable_mp(this, &EditorProfiler::_internal_profiles_pressed));
 	hb->add_child(display_internal_profiles);
 
 	hb->add_spacer();
@@ -669,6 +670,7 @@ EditorProfiler::EditorProfiler() {
 	h_split->set_v_size_flags(SIZE_EXPAND_FILL);
 
 	variables = memnew(Tree);
+	variables->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	variables->set_custom_minimum_size(Size2(320, 0) * EDSCALE);
 	variables->set_hide_folding(true);
 	h_split->add_child(variables);
@@ -692,9 +694,9 @@ EditorProfiler::EditorProfiler() {
 	graph = memnew(TextureRect);
 	graph->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
 	graph->set_mouse_filter(MOUSE_FILTER_STOP);
-	graph->connect("draw", callable_mp(this, &EditorProfiler::_graph_tex_draw));
-	graph->connect("gui_input", callable_mp(this, &EditorProfiler::_graph_tex_input));
-	graph->connect("mouse_exited", callable_mp(this, &EditorProfiler::_graph_tex_mouse_exit));
+	graph->connect(SceneStringName(draw), callable_mp(this, &EditorProfiler::_graph_tex_draw));
+	graph->connect(SceneStringName(gui_input), callable_mp(this, &EditorProfiler::_graph_tex_input));
+	graph->connect(SceneStringName(mouse_exited), callable_mp(this, &EditorProfiler::_graph_tex_mouse_exit));
 
 	h_split->add_child(graph);
 	graph->set_h_size_flags(SIZE_EXPAND_FILL);

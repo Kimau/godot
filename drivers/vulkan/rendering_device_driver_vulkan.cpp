@@ -758,12 +758,13 @@ Error RenderingDeviceDriverVulkan::_check_device_capabilities() {
 				vrs_capabilities.min_texel_size.y = vrs_properties.minFragmentShadingRateAttachmentTexelSize.height;
 				vrs_capabilities.max_texel_size.x = vrs_properties.maxFragmentShadingRateAttachmentTexelSize.width;
 				vrs_capabilities.max_texel_size.y = vrs_properties.maxFragmentShadingRateAttachmentTexelSize.height;
+				vrs_capabilities.max_fragment_size.x = vrs_properties.maxFragmentSize.width; // either 4 or 8
+				vrs_capabilities.max_fragment_size.y = vrs_properties.maxFragmentSize.height; // generally the same as width
 
 				// We'll attempt to default to a texel size of 16x16.
-				vrs_capabilities.texel_size.x = CLAMP(16, vrs_capabilities.min_texel_size.x, vrs_capabilities.max_texel_size.x);
-				vrs_capabilities.texel_size.y = CLAMP(16, vrs_capabilities.min_texel_size.y, vrs_capabilities.max_texel_size.y);
+				vrs_capabilities.texel_size = Vector2i(16, 16).clamp(vrs_capabilities.min_texel_size, vrs_capabilities.max_texel_size);
 
-				print_verbose(String("  Attachment fragment shading rate") + String(", min texel size: (") + itos(vrs_capabilities.min_texel_size.x) + String(", ") + itos(vrs_capabilities.min_texel_size.y) + String(")") + String(", max texel size: (") + itos(vrs_capabilities.max_texel_size.x) + String(", ") + itos(vrs_capabilities.max_texel_size.y) + String(")"));
+				print_verbose(String("  Attachment fragment shading rate") + String(", min texel size: (") + itos(vrs_capabilities.min_texel_size.x) + String(", ") + itos(vrs_capabilities.min_texel_size.y) + String(")") + String(", max texel size: (") + itos(vrs_capabilities.max_texel_size.x) + String(", ") + itos(vrs_capabilities.max_texel_size.y) + String(")") + String(", max fragment size: (") + itos(vrs_capabilities.max_fragment_size.x) + String(", ") + itos(vrs_capabilities.max_fragment_size.y) + String(")"));
 			}
 
 		} else {
@@ -1009,7 +1010,7 @@ VkResult RenderingDeviceDriverVulkan::_create_render_pass(VkDevice p_device, con
 			const uint32_t depth_attachment_index = vector_base_index + 3;
 			_convert_subpass_attachments(p_create_info->pSubpasses[i].pInputAttachments, p_create_info->pSubpasses[i].inputAttachmentCount, subpasses_attachments[input_attachments_index]);
 			_convert_subpass_attachments(p_create_info->pSubpasses[i].pColorAttachments, p_create_info->pSubpasses[i].colorAttachmentCount, subpasses_attachments[color_attachments_index]);
-			_convert_subpass_attachments(p_create_info->pSubpasses[i].pResolveAttachments, p_create_info->pSubpasses[i].colorAttachmentCount, subpasses_attachments[resolve_attachments_index]);
+			_convert_subpass_attachments(p_create_info->pSubpasses[i].pResolveAttachments, (p_create_info->pSubpasses[i].pResolveAttachments != nullptr) ? p_create_info->pSubpasses[i].colorAttachmentCount : 0, subpasses_attachments[resolve_attachments_index]);
 			_convert_subpass_attachments(p_create_info->pSubpasses[i].pDepthStencilAttachment, (p_create_info->pSubpasses[i].pDepthStencilAttachment != nullptr) ? 1 : 0, subpasses_attachments[depth_attachment_index]);
 
 			// Ignores sType and pNext from the subpass.
@@ -2603,7 +2604,7 @@ Error RenderingDeviceDriverVulkan::swap_chain_resize(CommandQueueID p_cmd_queue,
 			break;
 	}
 
-	bool present_mode_available = present_modes.find(present_mode) >= 0;
+	bool present_mode_available = present_modes.has(present_mode);
 	if (present_mode_available) {
 		print_verbose("Using present mode: " + present_mode_name);
 	} else {
@@ -2646,6 +2647,7 @@ Error RenderingDeviceDriverVulkan::swap_chain_resize(CommandQueueID p_cmd_queue,
 				break;
 			}
 		}
+		has_comp_alpha[(uint64_t)p_cmd_queue.id] = (composite_alpha != VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
 	}
 
 	VkSwapchainCreateInfoKHR swap_create_info = {};
@@ -2958,10 +2960,7 @@ Vector<uint8_t> RenderingDeviceDriverVulkan::shader_compile_binary_from_spirv(Ve
 			}
 		}
 		uint32_t s = compressed_stages[i].size();
-		if (s % 4 != 0) {
-			s += 4 - (s % 4);
-		}
-		stages_binary_size += s;
+		stages_binary_size += STEPIFY(s, 4);
 	}
 
 	binary_data.specialization_constants_count = specialization_constants.size();
@@ -2975,11 +2974,7 @@ Vector<uint8_t> RenderingDeviceDriverVulkan::shader_compile_binary_from_spirv(Ve
 	uint32_t total_size = sizeof(uint32_t) * 3; // Header + version + main datasize;.
 	total_size += sizeof(ShaderBinary::Data);
 
-	total_size += binary_data.shader_name_len;
-
-	if ((binary_data.shader_name_len % 4) != 0) { // Alignment rules are really strange.
-		total_size += 4 - (binary_data.shader_name_len % 4);
-	}
+	total_size += STEPIFY(binary_data.shader_name_len, 4);
 
 	for (int i = 0; i < uniforms.size(); i++) {
 		total_size += sizeof(uint32_t);
@@ -3008,13 +3003,17 @@ Vector<uint8_t> RenderingDeviceDriverVulkan::shader_compile_binary_from_spirv(Ve
 		memcpy(binptr + offset, &binary_data, sizeof(ShaderBinary::Data));
 		offset += sizeof(ShaderBinary::Data);
 
+#define ADVANCE_OFFSET_WITH_ALIGNMENT(m_bytes)                         \
+	{                                                                  \
+		offset += m_bytes;                                             \
+		uint32_t padding = STEPIFY(m_bytes, 4) - m_bytes;              \
+		memset(binptr + offset, 0, padding); /* Avoid garbage data. */ \
+		offset += padding;                                             \
+	}
+
 		if (binary_data.shader_name_len > 0) {
 			memcpy(binptr + offset, shader_name_utf.ptr(), binary_data.shader_name_len);
-			offset += binary_data.shader_name_len;
-
-			if ((binary_data.shader_name_len % 4) != 0) { // Alignment rules are really strange.
-				offset += 4 - (binary_data.shader_name_len % 4);
-			}
+			ADVANCE_OFFSET_WITH_ALIGNMENT(binary_data.shader_name_len);
 		}
 
 		for (int i = 0; i < uniforms.size(); i++) {
@@ -3040,14 +3039,7 @@ Vector<uint8_t> RenderingDeviceDriverVulkan::shader_compile_binary_from_spirv(Ve
 			encode_uint32(zstd_size[i], binptr + offset);
 			offset += sizeof(uint32_t);
 			memcpy(binptr + offset, compressed_stages[i].ptr(), compressed_stages[i].size());
-
-			uint32_t s = compressed_stages[i].size();
-
-			if (s % 4 != 0) {
-				s += 4 - (s % 4);
-			}
-
-			offset += s;
+			ADVANCE_OFFSET_WITH_ALIGNMENT(compressed_stages[i].size());
 		}
 
 		DEV_ASSERT(offset == (uint32_t)ret.size());
@@ -3091,10 +3083,7 @@ RDD::ShaderID RenderingDeviceDriverVulkan::shader_create_from_bytecode(const Vec
 
 	if (binary_data.shader_name_len) {
 		r_name.parse_utf8((const char *)(binptr + read_offset), binary_data.shader_name_len);
-		read_offset += binary_data.shader_name_len;
-		if ((binary_data.shader_name_len % 4) != 0) { // Alignment rules are really strange.
-			read_offset += 4 - (binary_data.shader_name_len % 4);
-		}
+		read_offset += STEPIFY(binary_data.shader_name_len, 4);
 	}
 
 	Vector<Vector<VkDescriptorSetLayoutBinding>> vk_set_bindings;
@@ -3193,6 +3182,7 @@ RDD::ShaderID RenderingDeviceDriverVulkan::shader_create_from_bytecode(const Vec
 
 	for (uint32_t i = 0; i < binary_data.stage_count; i++) {
 		ERR_FAIL_COND_V(read_offset + sizeof(uint32_t) * 3 >= binsize, ShaderID());
+
 		uint32_t stage = decode_uint32(binptr + read_offset);
 		read_offset += sizeof(uint32_t);
 		uint32_t smolv_size = decode_uint32(binptr + read_offset);
@@ -3224,16 +3214,12 @@ RDD::ShaderID RenderingDeviceDriverVulkan::shader_create_from_bytecode(const Vec
 
 		r_shader_desc.stages.set(i, ShaderStage(stage));
 
-		if (buf_size % 4 != 0) {
-			buf_size += 4 - (buf_size % 4);
-		}
-
-		DEV_ASSERT(read_offset + buf_size <= binsize);
-
+		buf_size = STEPIFY(buf_size, 4);
 		read_offset += buf_size;
+		ERR_FAIL_COND_V(read_offset > binsize, ShaderID());
 	}
 
-	DEV_ASSERT(read_offset == binsize);
+	ERR_FAIL_COND_V(read_offset != binsize, ShaderID());
 
 	// Modules.
 
@@ -3829,12 +3815,14 @@ bool RenderingDeviceDriverVulkan::pipeline_cache_create(const Vector<uint8_t> &p
 
 	// Parse.
 	{
-		if (p_data.size() <= (int)sizeof(PipelineCacheHeader)) {
-			WARN_PRINT("Invalid/corrupt pipelines cache.");
+		if (p_data.is_empty()) {
+			// No pre-existing cache, just create it.
+		} else if (p_data.size() <= (int)sizeof(PipelineCacheHeader)) {
+			print_verbose("Invalid/corrupt Vulkan pipelines cache. Existing shader pipeline cache will be ignored, which may result in stuttering during gameplay.");
 		} else {
 			const PipelineCacheHeader *loaded_header = reinterpret_cast<const PipelineCacheHeader *>(p_data.ptr());
 			if (loaded_header->magic != 868 + VK_PIPELINE_CACHE_HEADER_VERSION_ONE) {
-				WARN_PRINT("Invalid pipelines cache magic number.");
+				print_verbose("Invalid Vulkan pipelines cache magic number. Existing shader pipeline cache will be ignored, which may result in stuttering during gameplay.");
 			} else {
 				const uint8_t *loaded_buffer_start = p_data.ptr() + sizeof(PipelineCacheHeader);
 				uint32_t loaded_buffer_size = p_data.size() - sizeof(PipelineCacheHeader);
@@ -3846,7 +3834,7 @@ bool RenderingDeviceDriverVulkan::pipeline_cache_create(const Vector<uint8_t> &p
 						loaded_header->driver_version != current_header->driver_version ||
 						memcmp(loaded_header->uuid, current_header->uuid, VK_UUID_SIZE) != 0 ||
 						loaded_header->driver_abi != current_header->driver_abi) {
-					WARN_PRINT("Invalid pipelines cache header.");
+					print_verbose("Invalid Vulkan pipelines cache header. This may be due to an engine change, GPU change or graphics driver version change. Existing shader pipeline cache will be ignored, which may result in stuttering during gameplay.");
 				} else {
 					pipelines_cache.current_size = loaded_buffer_size;
 					pipelines_cache.buffer = p_data;
@@ -4903,6 +4891,10 @@ uint64_t RenderingDeviceDriverVulkan::limit_get(Limit p_limit) {
 			return vrs_capabilities.texel_size.x;
 		case LIMIT_VRS_TEXEL_HEIGHT:
 			return vrs_capabilities.texel_size.y;
+		case LIMIT_VRS_MAX_FRAGMENT_WIDTH:
+			return vrs_capabilities.max_fragment_size.x;
+		case LIMIT_VRS_MAX_FRAGMENT_HEIGHT:
+			return vrs_capabilities.max_fragment_size.y;
 		default:
 			ERR_FAIL_V(0);
 	}
@@ -4953,6 +4945,13 @@ String RenderingDeviceDriverVulkan::get_pipeline_cache_uuid() const {
 
 const RDD::Capabilities &RenderingDeviceDriverVulkan::get_capabilities() const {
 	return device_capabilities;
+}
+
+bool RenderingDeviceDriverVulkan::is_composite_alpha_supported(CommandQueueID p_queue) const {
+	if (has_comp_alpha.has((uint64_t)p_queue.id)) {
+		return has_comp_alpha[(uint64_t)p_queue.id];
+	}
+	return false;
 }
 
 /******************/

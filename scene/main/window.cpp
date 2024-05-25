@@ -37,7 +37,6 @@
 #include "core/string/translation.h"
 #include "core/variant/variant_parser.h"
 #include "scene/gui/control.h"
-#include "scene/scene_string_names.h"
 #include "scene/theme/theme_db.h"
 #include "scene/theme/theme_owner.h"
 
@@ -415,7 +414,7 @@ Size2i Window::_clamp_limit_size(const Size2i &p_limit_size) {
 	if (max_window_size != Size2i()) {
 		return p_limit_size.clamp(Vector2i(), max_window_size);
 	} else {
-		return p_limit_size.max(Vector2i());
+		return p_limit_size.maxi(0);
 	}
 }
 
@@ -724,6 +723,9 @@ void Window::_event_callback(DisplayServer::WindowEvent p_event) {
 			if (!is_inside_tree()) {
 				return;
 			}
+			// Ensure keeping the order of input events and window events when input events are buffered or accumulated.
+			Input::get_singleton()->flush_buffered_events();
+
 			Window *root = get_tree()->get_root();
 			if (!root->gui.windowmanager_window_over) {
 #ifdef DEV_ENABLED
@@ -739,13 +741,13 @@ void Window::_event_callback(DisplayServer::WindowEvent p_event) {
 		case DisplayServer::WINDOW_EVENT_FOCUS_IN: {
 			focused = true;
 			_propagate_window_notification(this, NOTIFICATION_WM_WINDOW_FOCUS_IN);
-			emit_signal(SNAME("focus_entered"));
+			emit_signal(SceneStringName(focus_entered));
 
 		} break;
 		case DisplayServer::WINDOW_EVENT_FOCUS_OUT: {
 			focused = false;
 			_propagate_window_notification(this, NOTIFICATION_WM_WINDOW_FOCUS_OUT);
-			emit_signal(SNAME("focus_exited"));
+			emit_signal(SceneStringName(focus_exited));
 		} break;
 		case DisplayServer::WINDOW_EVENT_CLOSE_REQUEST: {
 			if (exclusive_child != nullptr) {
@@ -843,7 +845,7 @@ void Window::set_visible(bool p_visible) {
 		focused = false;
 	}
 	notification(NOTIFICATION_VISIBILITY_CHANGED);
-	emit_signal(SceneStringNames::get_singleton()->visibility_changed);
+	emit_signal(SceneStringName(visibility_changed));
 
 	RS::get_singleton()->viewport_set_active(get_viewport_rid(), visible);
 
@@ -1033,8 +1035,7 @@ void Window::_update_window_size() {
 	}
 
 	if (embedder) {
-		size.x = MAX(size.x, 1);
-		size.y = MAX(size.y, 1);
+		size = size.maxi(1);
 
 		embedder->_sub_window_update(this);
 	} else if (window_id != DisplayServer::INVALID_WINDOW_ID) {
@@ -1209,8 +1210,26 @@ void Window::_update_window_callbacks() {
 	DisplayServer::get_singleton()->window_set_drop_files_callback(callable_mp(this, &Window::_window_drop_files), window_id);
 }
 
+void Window::set_force_native(bool p_force_native) {
+	if (force_native == p_force_native) {
+		return;
+	}
+	if (is_visible() && !is_in_edited_scene_root()) {
+		ERR_FAIL_MSG("Can't change \"force_native\" while a window is displayed. Consider hiding window before changing this value.");
+	}
+	force_native = p_force_native;
+}
+
+bool Window::get_force_native() const {
+	return force_native;
+}
+
 Viewport *Window::get_embedder() const {
 	ERR_READ_THREAD_GUARD_V(nullptr);
+	if (force_native && DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_SUBWINDOWS) && !is_in_edited_scene_root()) {
+		return nullptr;
+	}
+
 	Viewport *vp = get_parent_viewport();
 
 	while (vp) {
@@ -1301,7 +1320,7 @@ void Window::_notification(int p_what) {
 			}
 			if (visible) {
 				notification(NOTIFICATION_VISIBILITY_CHANGED);
-				emit_signal(SceneStringNames::get_singleton()->visibility_changed);
+				emit_signal(SceneStringName(visibility_changed));
 				RS::get_singleton()->viewport_set_active(get_viewport_rid(), true);
 			}
 
@@ -1317,7 +1336,7 @@ void Window::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_THEME_CHANGED: {
-			emit_signal(SceneStringNames::get_singleton()->theme_changed);
+			emit_signal(SceneStringName(theme_changed));
 			_invalidate_theme_cache();
 			_update_theme_item_cache();
 		} break;
@@ -1384,11 +1403,11 @@ void Window::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_VP_MOUSE_ENTER: {
-			emit_signal(SceneStringNames::get_singleton()->mouse_entered);
+			emit_signal(SceneStringName(mouse_entered));
 		} break;
 
 		case NOTIFICATION_VP_MOUSE_EXIT: {
-			emit_signal(SceneStringNames::get_singleton()->mouse_exited);
+			emit_signal(SceneStringName(mouse_exited));
 		} break;
 	}
 }
@@ -1527,8 +1546,7 @@ Size2 Window::_get_contents_minimum_size() const {
 			Point2i pos = c->get_position();
 			Size2i min = c->get_combined_minimum_size();
 
-			max.x = MAX(pos.x + min.x, max.x);
-			max.y = MAX(pos.y + min.y, max.y);
+			max = max.max(pos + min);
 		}
 	}
 
@@ -1560,6 +1578,7 @@ bool Window::_can_consume_input_events() const {
 }
 
 void Window::_window_input(const Ref<InputEvent> &p_ev) {
+	ERR_MAIN_THREAD_GUARD;
 	if (EngineDebugger::is_active()) {
 		// Quit from game window using the stop shortcut (F8 by default).
 		// The custom shortcut is provided via environment variable when running from the editor.
@@ -1602,7 +1621,7 @@ void Window::_window_input(const Ref<InputEvent> &p_ev) {
 	_input_from_window(p_ev);
 
 	if (p_ev->get_device() != InputEvent::DEVICE_ID_INTERNAL && is_inside_tree()) {
-		emit_signal(SceneStringNames::get_singleton()->window_input, p_ev);
+		emit_signal(SceneStringName(window_input), p_ev);
 	}
 
 	if (is_inside_tree()) {
@@ -1685,7 +1704,7 @@ void Window::popup_centered_clamped(const Size2i &p_size, float p_fallback_ratio
 	Vector2i size_ratio = parent_rect.size * p_fallback_ratio;
 
 	Rect2i popup_rect;
-	popup_rect.size = Vector2i(MIN(size_ratio.x, expected_size.x), MIN(size_ratio.y, expected_size.y));
+	popup_rect.size = size_ratio.min(expected_size);
 	popup_rect.size = _clamp_window_size(popup_rect.size);
 
 	if (parent_rect != Rect2()) {
@@ -2701,9 +2720,6 @@ void Window::_update_mouse_over(Vector2 p_pos) {
 		if (is_embedded()) {
 			mouse_in_window = true;
 			_propagate_window_notification(this, NOTIFICATION_WM_MOUSE_ENTER);
-		} else {
-			// Prevent update based on delayed InputEvents from DisplayServer.
-			return;
 		}
 	}
 
@@ -2801,6 +2817,9 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_embedded"), &Window::is_embedded);
 
 	ClassDB::bind_method(D_METHOD("get_contents_minimum_size"), &Window::get_contents_minimum_size);
+
+	ClassDB::bind_method(D_METHOD("set_force_native", "force_native"), &Window::set_force_native);
+	ClassDB::bind_method(D_METHOD("get_force_native"), &Window::get_force_native);
 
 	ClassDB::bind_method(D_METHOD("set_content_scale_size", "size"), &Window::set_content_scale_size);
 	ClassDB::bind_method(D_METHOD("get_content_scale_size"), &Window::get_content_scale_size);
@@ -2926,6 +2945,7 @@ void Window::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "popup_window"), "set_flag", "get_flag", FLAG_POPUP);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "extend_to_title"), "set_flag", "get_flag", FLAG_EXTEND_TO_TITLE);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "mouse_passthrough"), "set_flag", "get_flag", FLAG_MOUSE_PASSTHROUGH);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "force_native"), "set_force_native", "get_force_native");
 
 	ADD_GROUP("Limits", "");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "min_size", PROPERTY_HINT_NONE, "suffix:px"), "set_min_size", "get_min_size");

@@ -105,6 +105,7 @@ class RenderingDeviceDriverD3D12 : public RenderingDeviceDriver {
 		bool primitive_in_multiviewport = false;
 		bool ss_image_supported = false; // We can provide a density map attachment on our framebuffer.
 		uint32_t ss_image_tile_size = 0;
+		uint32_t ss_max_fragment_size = 0;
 		bool additional_rates_supported = false;
 	};
 
@@ -379,7 +380,7 @@ private:
 
 	struct FenceInfo {
 		ComPtr<ID3D12Fence> d3d_fence = nullptr;
-		HANDLE event_handle = NULL;
+		HANDLE event_handle = nullptr;
 		UINT64 fence_value = 0;
 	};
 
@@ -972,6 +973,7 @@ private:
 	uint32_t frames_drawn = 0;
 	uint32_t segment_serial = 0;
 	bool segment_begun = false;
+	HashMap<uint64_t, bool> has_comp_alpha;
 
 public:
 	virtual void begin_segment(uint32_t p_frame_index, uint32_t p_frames_drawn) override final;
@@ -992,6 +994,8 @@ public:
 	virtual String get_api_version() const override final;
 	virtual String get_pipeline_cache_uuid() const override final;
 	virtual const Capabilities &get_capabilities() const override final;
+
+	virtual bool is_composite_alpha_supported(CommandQueueID p_queue) const override final;
 
 	static bool is_in_developer_mode();
 

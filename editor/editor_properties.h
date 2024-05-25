@@ -621,10 +621,11 @@ class EditorPropertyColor : public EditorProperty {
 	ColorPickerButton *picker = nullptr;
 	void _color_changed(const Color &p_color);
 	void _popup_closed();
-	void _picker_created();
 	void _picker_opening();
 
 	Color last_color;
+	bool live_changes_enabled = true;
+	bool was_checked = false;
 
 protected:
 	virtual void _set_read_only(bool p_read_only) override;
@@ -633,6 +634,7 @@ protected:
 public:
 	virtual void update_property() override;
 	void setup(bool p_show_alpha);
+	void set_live_changes_enabled(bool p_enabled);
 	EditorPropertyColor();
 };
 
@@ -698,8 +700,6 @@ class EditorPropertyResource : public EditorProperty {
 
 	bool use_sub_inspector = false;
 	EditorInspector *sub_inspector = nullptr;
-	VBoxContainer *sub_inspector_vbox = nullptr;
-	bool updating_theme = false;
 	bool opened_editor = false;
 
 	void _resource_selected(const Ref<Resource> &p_resource, bool p_inspect);
@@ -712,7 +712,6 @@ class EditorPropertyResource : public EditorProperty {
 	void _sub_inspector_object_id_selected(int p_id);
 
 	void _open_editor_pressed();
-	void _update_property_bg();
 	void _update_preferred_shader();
 
 protected:
@@ -729,6 +728,8 @@ public:
 
 	void set_use_sub_inspector(bool p_enable);
 	void fold_resource();
+
+	virtual bool is_colored(ColorationMode p_mode) override;
 
 	EditorPropertyResource();
 };
