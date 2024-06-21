@@ -25,6 +25,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
+if exist bin_stable (
+	del /s /f /q bin_stable
+	rd bin_stable
+	echo Deleting old stable build
+)
+
 REM Rename the 'bin' directory to 'bin_stable'
 echo Renaming bin directory to bin_stable...
 rename bin bin_stable
