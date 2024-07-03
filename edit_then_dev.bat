@@ -19,7 +19,7 @@ if not exist bin (
 
 REM Run scons
 echo Running scons for initial build...
-scons
+scons p=windows vsproj=no dev_build=no
 if errorlevel 1 (
     echo Scons initial build failed.
     exit /b 1
