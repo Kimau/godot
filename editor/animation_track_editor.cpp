@@ -43,6 +43,7 @@
 #include "editor/inspector_dock.h"
 #include "editor/plugins/animation_player_editor_plugin.h"
 #include "editor/themes/editor_scale.h"
+#include "scene/3d/mesh_instance_3d.h"
 #include "scene/animation/animation_player.h"
 #include "scene/animation/tween.h"
 #include "scene/gui/check_box.h"
@@ -874,15 +875,15 @@ bool AnimationMultiTrackKeyEdit::_set(const StringName &p_name, const Variant &p
 							undo_redo->create_action(TTR("Animation Multi Change Keyframe Value"), UndoRedo::MERGE_ENDS);
 						}
 						Vector2 prev = animation->bezier_track_get_key_out_handle(track, key);
-						undo_redo->add_do_method(this, "_bezier_track_set_key_out_handle", track, key, value);
-						undo_redo->add_undo_method(this, "_bezier_track_set_key_out_handle", track, key, prev);
+						undo_redo->add_do_method(animation.ptr(), "bezier_track_set_key_out_handle", track, key, value);
+						undo_redo->add_undo_method(animation.ptr(), "bezier_track_set_key_out_handle", track, key, prev);
 						update_obj = true;
 					} else if (name == "handle_mode") {
 						const Variant &value = p_value;
 
 						if (!setting) {
 							setting = true;
-							undo_redo->create_action(TTR("Animation Multi Change Keyframe Value"), UndoRedo::MERGE_ENDS);
+							undo_redo->create_action(TTR("Animation Multi Change Keyframe Value"), UndoRedo::MERGE_ENDS, animation.ptr());
 						}
 						int prev_mode = animation->bezier_track_get_key_handle_mode(track, key);
 						Vector2 prev_in_handle = animation->bezier_track_get_key_in_handle(track, key);
@@ -3690,7 +3691,7 @@ void AnimationTrackEditor::_name_limit_changed() {
 }
 
 void AnimationTrackEditor::_timeline_changed(float p_new_pos, bool p_timeline_only) {
-	emit_signal(SNAME("timeline_changed"), p_new_pos, p_timeline_only);
+	emit_signal(SNAME("timeline_changed"), p_new_pos, p_timeline_only, false);
 }
 
 void AnimationTrackEditor::_track_remove_request(int p_track) {
@@ -3787,6 +3788,7 @@ void AnimationTrackEditor::set_anim_pos(float p_pos) {
 	}
 	_redraw_groups();
 	bezier_edit->set_play_position(p_pos);
+	emit_signal(SNAME("timeline_changed"), p_pos, true, true);
 }
 
 static bool track_type_is_resettable(Animation::TrackType p_type) {
@@ -3867,15 +3869,23 @@ void AnimationTrackEditor::commit_insert_queue() {
 	}
 
 	// Skip the confirmation dialog if the user holds Shift while clicking the key icon.
-	if (!Input::get_singleton()->is_key_pressed(Key::SHIFT) && num_tracks > 0) {
-		String shortcut_hint = TTR("Hold Shift when clicking the key icon to skip this dialog.");
+	// If `confirm_insert_track` editor setting is disabled, the behavior is reversed.
+	bool confirm_insert = EDITOR_GET("editors/animation/confirm_insert_track");
+	if ((Input::get_singleton()->is_key_pressed(Key::SHIFT) != confirm_insert) && num_tracks > 0) {
+		String dialog_text;
+
 		// Potentially a new key, does not exist.
 		if (num_tracks == 1) {
 			// TRANSLATORS: %s will be replaced by a phrase describing the target of track.
-			insert_confirm_text->set_text(vformat(TTR("Create new track for %s and insert key?") + "\n\n" + shortcut_hint, last_track_query));
+			dialog_text = vformat(TTR("Create new track for %s and insert key?"), last_track_query);
 		} else {
-			insert_confirm_text->set_text(vformat(TTR("Create %d new tracks and insert keys?") + "\n\n" + shortcut_hint, num_tracks));
+			dialog_text = vformat(TTR("Create %d new tracks and insert keys?"), num_tracks);
 		}
+
+		if (confirm_insert) {
+			dialog_text += +"\n\n" + TTR("Hold Shift when clicking the key icon to skip this dialog.");
+		}
+		insert_confirm_text->set_text(dialog_text);
 
 		insert_confirm_bezier->set_visible(all_bezier);
 		insert_confirm_reset->set_visible(reset_allowed);
@@ -4420,7 +4430,7 @@ AnimationTrackEditor::TrackIndices AnimationTrackEditor::_confirm_insert(InsertD
 				for (int i = 0; i < subindices.size(); i++) {
 					InsertData id = p_id;
 					id.type = Animation::TYPE_BEZIER;
-					id.value = p_id.value.get(subindices[i].substr(1, subindices[i].length()));
+					id.value = subindices[i].is_empty() ? p_id.value : p_id.value.get(subindices[i].substr(1, subindices[i].length()));
 					id.path = String(p_id.path) + subindices[i];
 					p_next_tracks = _confirm_insert(id, p_next_tracks, p_reset_wanted, p_reset_anim, false);
 				}
@@ -4456,16 +4466,8 @@ AnimationTrackEditor::TrackIndices AnimationTrackEditor::_confirm_insert(InsertD
 
 		} break;
 		case Animation::TYPE_BEZIER: {
-			Array array;
-			array.resize(5);
-			array[0] = p_id.value;
-			array[1] = -0.25;
-			array[2] = 0;
-			array[3] = 0.25;
-			array[4] = 0;
-			value = array;
+			value = animation->make_default_bezier_key(p_id.value);
 			bezier_edit_icon->set_disabled(false);
-
 		} break;
 		default: {
 			// Other track types shouldn't use this code path.
@@ -5084,17 +5086,7 @@ void AnimationTrackEditor::_fetch_value_track_options(const NodePath &p_path, An
 	PropertyInfo h = _find_hint_for_track(animation->get_track_count() - 1, np);
 	animation->remove_track(animation->get_track_count() - 1); // Hack.
 	switch (h.type) {
-		case Variant::FLOAT: {
-#ifdef DISABLE_DEPRECATED
-			bool is_angle = h.type == Variant::FLOAT && h.hint_string.contains("radians_as_degrees");
-#else
-			bool is_angle = h.type == Variant::FLOAT && h.hint_string.contains("radians");
-#endif // DISABLE_DEPRECATED
-			if (is_angle) {
-				*r_interpolation_type = Animation::INTERPOLATION_LINEAR_ANGLE;
-			}
-			[[fallthrough]];
-		}
+		case Variant::FLOAT:
 		case Variant::VECTOR2:
 		case Variant::RECT2:
 		case Variant::VECTOR3:
@@ -5129,16 +5121,7 @@ void AnimationTrackEditor::_new_track_property_selected(const String &p_name) {
 	Animation::InterpolationType interp_type = Animation::INTERPOLATION_LINEAR;
 	bool loop_wrap = true;
 	_fetch_value_track_options(full_path, &update_mode, &interp_type, &loop_wrap);
-	if (adding_track_type == Animation::TYPE_VALUE) {
-		undo_redo->create_action(TTR("Add Track"));
-		undo_redo->add_do_method(animation.ptr(), "add_track", adding_track_type);
-		undo_redo->add_do_method(animation.ptr(), "track_set_path", animation->get_track_count(), full_path);
-		undo_redo->add_do_method(animation.ptr(), "track_set_interpolation_type", animation->get_track_count(), interp_type);
-		undo_redo->add_do_method(animation.ptr(), "track_set_interpolation_loop_wrap", animation->get_track_count(), loop_wrap);
-		undo_redo->add_do_method(animation.ptr(), "value_track_set_update_mode", animation->get_track_count(), update_mode);
-		undo_redo->add_undo_method(animation.ptr(), "remove_track", animation->get_track_count());
-		undo_redo->commit_action();
-	} else {
+	if (adding_track_type == Animation::TYPE_BEZIER) {
 		Vector<String> subindices;
 		{
 			// Hack.
@@ -5165,6 +5148,24 @@ void AnimationTrackEditor::_new_track_property_selected(const String &p_name) {
 			undo_redo->add_do_method(animation.ptr(), "track_set_interpolation_loop_wrap", track_idx, loop_wrap);
 			undo_redo->add_undo_method(animation.ptr(), "remove_track", base_track);
 		}
+		undo_redo->commit_action();
+	} else {
+		bool is_blend_shape = adding_track_type == Animation::TYPE_BLEND_SHAPE;
+		if (is_blend_shape) {
+			PackedStringArray split = p_name.split("/");
+			if (!split.is_empty()) {
+				full_path = String(adding_track_path) + ":" + split[split.size() - 1];
+			}
+		}
+		undo_redo->create_action(TTR("Add Track"));
+		undo_redo->add_do_method(animation.ptr(), "add_track", adding_track_type);
+		undo_redo->add_do_method(animation.ptr(), "track_set_path", animation->get_track_count(), full_path);
+		undo_redo->add_do_method(animation.ptr(), "track_set_interpolation_type", animation->get_track_count(), interp_type);
+		undo_redo->add_do_method(animation.ptr(), "track_set_interpolation_loop_wrap", animation->get_track_count(), loop_wrap);
+		if (!is_blend_shape) {
+			undo_redo->add_do_method(animation.ptr(), "value_track_set_update_mode", animation->get_track_count(), update_mode);
+		}
+		undo_redo->add_undo_method(animation.ptr(), "remove_track", animation->get_track_count());
 		undo_redo->commit_action();
 	}
 }
@@ -5258,7 +5259,16 @@ void AnimationTrackEditor::_insert_key_from_track(float p_ofs, int p_track) {
 
 			id.value = base->get_scale();
 		} break;
-		case Animation::TYPE_BLEND_SHAPE:
+		case Animation::TYPE_BLEND_SHAPE: {
+			MeshInstance3D *base = Object::cast_to<MeshInstance3D>(node);
+
+			if (!base) {
+				EditorNode::get_singleton()->show_warning(TTR("Track is not of type MeshInstance3D, can't insert key"));
+				return;
+			}
+
+			id.value = base->get_blend_shape_value(base->find_blend_shape_by_name(id.path.get_subname(0)));
+		} break;
 		case Animation::TYPE_VALUE: {
 			NodePath bp;
 			_find_hint_for_track(p_track, bp, &id.value);
@@ -5277,15 +5287,7 @@ void AnimationTrackEditor::_insert_key_from_track(float p_ofs, int p_track) {
 			NodePath bp;
 			Variant value;
 			_find_hint_for_track(p_track, bp, &value);
-			Array arr;
-			arr.resize(5);
-			arr[0] = value;
-			arr[1] = -0.25;
-			arr[2] = 0;
-			arr[3] = 0.25;
-			arr[4] = 0;
-
-			id.value = arr;
+			id.value = animation->make_default_bezier_key(value);
 		} break;
 		case Animation::TYPE_AUDIO: {
 			Dictionary ak;
@@ -5829,7 +5831,7 @@ void AnimationTrackEditor::_anim_duplicate_keys(float p_ofs, bool p_ofs_valid, i
 			if (key_is_bezier && !track_is_bezier) {
 				value = AnimationBezierTrackEdit::get_bezier_key_value(value);
 			} else if (!key_is_bezier && track_is_bezier) {
-				value = AnimationBezierTrackEdit::make_default_bezier_key(value);
+				value = animation->make_default_bezier_key(value);
 			}
 
 			undo_redo->add_do_method(animation.ptr(), "track_insert_key", dst_track, dst_time, value, animation->track_get_key_transition(E->key().track, E->key().key));
@@ -5973,7 +5975,7 @@ void AnimationTrackEditor::_anim_paste_keys(float p_ofs, bool p_ofs_valid, int p
 			if (key_is_bezier && !track_is_bezier) {
 				value = AnimationBezierTrackEdit::get_bezier_key_value(value);
 			} else if (!key_is_bezier && track_is_bezier) {
-				value = AnimationBezierTrackEdit::make_default_bezier_key(value);
+				value = animation->make_default_bezier_key(value);
 			}
 
 			undo_redo->add_do_method(animation.ptr(), "track_insert_key", dst_track, dst_time, value, key.transition);

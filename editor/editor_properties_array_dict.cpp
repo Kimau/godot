@@ -124,6 +124,16 @@ bool EditorPropertyDictionaryObject::_set(const StringName &p_name, const Varian
 }
 
 bool EditorPropertyDictionaryObject::_get(const StringName &p_name, Variant &r_ret) const {
+	if (!get_by_property_name(p_name, r_ret)) {
+		return false;
+	}
+	if (r_ret.get_type() == Variant::OBJECT && Object::cast_to<EncodedObjectAsID>(r_ret)) {
+		r_ret = Object::cast_to<EncodedObjectAsID>(r_ret)->get_object_id();
+	}
+	return true;
+}
+
+bool EditorPropertyDictionaryObject::get_by_property_name(const String &p_name, Variant &r_ret) const {
 	String name = p_name;
 
 	if (name == "new_item_key") {
@@ -140,10 +150,6 @@ bool EditorPropertyDictionaryObject::_get(const StringName &p_name, Variant &r_r
 		int index = name.get_slicec('/', 1).to_int();
 		Variant key = dict.get_key_at_index(index);
 		r_ret = dict[key];
-		if (r_ret.get_type() == Variant::OBJECT && Object::cast_to<EncodedObjectAsID>(r_ret)) {
-			r_ret = Object::cast_to<EncodedObjectAsID>(r_ret)->get_object_id();
-		}
-
 		return true;
 	}
 
@@ -435,7 +441,7 @@ void EditorPropertyArray::update_property() {
 					editor->setup("Object");
 					new_prop = editor;
 				} else {
-					new_prop = EditorInspector::instantiate_property_editor(nullptr, value_type, "", subtype_hint, subtype_hint_string, PROPERTY_USAGE_NONE);
+					new_prop = EditorInspector::instantiate_property_editor(this, value_type, "", subtype_hint, subtype_hint_string, PROPERTY_USAGE_NONE);
 				}
 				new_prop->set_selectable(false);
 				new_prop->set_use_folding(is_using_folding());
@@ -1050,7 +1056,8 @@ void EditorPropertyDictionary::update_property() {
 			if (!slot_visible) {
 				continue;
 			}
-			Variant value = object->get(slot.prop_name);
+			Variant value;
+			object->get_by_property_name(slot.prop_name, value);
 			Variant::Type value_type = value.get_type();
 
 			// Check if the editor property needs to be updated.
@@ -1064,7 +1071,7 @@ void EditorPropertyDictionary::update_property() {
 					editor->setup("Object");
 					new_prop = editor;
 				} else {
-					new_prop = EditorInspector::instantiate_property_editor(nullptr, value_type, "", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE);
+					new_prop = EditorInspector::instantiate_property_editor(this, value_type, "", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE);
 				}
 				new_prop->set_selectable(false);
 				new_prop->set_use_folding(is_using_folding());

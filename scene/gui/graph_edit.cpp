@@ -546,6 +546,11 @@ void GraphEdit::_graph_node_slot_updated(int p_index, Node *p_node) {
 	GraphNode *graph_node = Object::cast_to<GraphNode>(p_node);
 	ERR_FAIL_NULL(graph_node);
 
+	// Update all adjacent connections during the next redraw.
+	for (const Ref<Connection> &conn : connection_map[graph_node->get_name()]) {
+		conn->_cache.dirty = true;
+	}
+
 	minimap->queue_redraw();
 	queue_redraw();
 	connections_layer->queue_redraw();
@@ -690,6 +695,10 @@ void GraphEdit::remove_child_notify(Node *p_child) {
 		graph_element->disconnect("raise_request", callable_mp(this, &GraphEdit::_ensure_node_order_from));
 		graph_element->disconnect("resize_request", callable_mp(this, &GraphEdit::_graph_element_resize_request));
 
+		if (connections_layer != nullptr && connections_layer->is_inside_tree()) {
+			graph_element->disconnect(SceneStringName(item_rect_changed), callable_mp((CanvasItem *)connections_layer, &CanvasItem::queue_redraw));
+		}
+
 		// In case of the whole GraphEdit being destroyed these references can already be freed.
 		if (minimap != nullptr && minimap->is_inside_tree()) {
 			graph_element->disconnect(SceneStringName(item_rect_changed), callable_mp((CanvasItem *)minimap, &GraphEditMinimap::queue_redraw));
@@ -782,7 +791,9 @@ Rect2 GraphEdit::_compute_shrinked_frame_rect(const GraphFrame *p_frame) {
 		return Rect2(p_frame->get_position_offset(), Size2());
 	}
 
-	min_point -= Size2(autoshrink_margin, autoshrink_margin);
+	const Size2 titlebar_size = p_frame->get_titlebar_size();
+
+	min_point -= Size2(autoshrink_margin, MAX(autoshrink_margin, titlebar_size.y));
 	max_point += Size2(autoshrink_margin, autoshrink_margin);
 
 	return Rect2(min_point, max_point - min_point);
