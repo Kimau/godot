@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  openxr_mxink_extension.h                                     */
+/*  openxr_mxink_extension.h                                              */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -37,7 +37,6 @@ class OpenXRMxInkExtension : public OpenXRExtensionWrapper {
 public:
 
 	virtual HashMap<String, bool *> get_requested_extensions() override;
-
 
 	bool is_available();
 
