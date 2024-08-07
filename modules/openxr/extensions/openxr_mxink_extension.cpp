@@ -54,7 +54,6 @@ void OpenXRMxInkExtension::on_register_metadata() {
 	// Logitech MX Ink Stylus
 	metadata->register_interaction_profile("Logitech MX Ink Stylus", "/interaction_profiles/logitech/mx_ink_stylus_logitech", XR_LOGITECH_MX_INK_STYLUS_INTERACTION_EXTENSION_NAME);
 
-
 	metadata->register_io_path("/interaction_profiles/logitech/mx_ink_stylus_logitech", "Tip Force", "/user/hand/left", "/user/hand/left/input/tip_logitech/force", "", OpenXRAction::OPENXR_ACTION_FLOAT);
 	metadata->register_io_path("/interaction_profiles/logitech/mx_ink_stylus_logitech", "Middle force", "/user/hand/left", "/user/hand/left/input/cluster_middle_logitech/force", "", OpenXRAction::OPENXR_ACTION_FLOAT);
 	metadata->register_io_path("/interaction_profiles/logitech/mx_ink_stylus_logitech", "Front click", "/user/hand/left", "/user/hand/left/input/cluster_front_logitech/click", "", OpenXRAction::OPENXR_ACTION_BOOL);

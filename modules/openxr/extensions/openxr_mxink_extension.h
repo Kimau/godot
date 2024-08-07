@@ -35,7 +35,6 @@
 
 class OpenXRMxInkExtension : public OpenXRExtensionWrapper {
 public:
-
 	virtual HashMap<String, bool *> get_requested_extensions() override;
 
 	bool is_available();
