@@ -380,3 +380,6 @@ $RECYCLE.BIN/
 *.msp
 *.lnk
 *.generated.props
+
+## FLAMMABLE PENGUINS ###
+modules/puzvr
