@@ -68,6 +68,23 @@ void remove_print_handler(const PrintHandlerList *p_handler) {
 	ERR_FAIL_NULL(l);
 }
 
+void __print_string(const String &p_string) {
+	if (!CoreGlobals::print_line_enabled) {
+		return;
+	}
+
+	OS::get_singleton()->print("%s", p_string.utf8().get_data());
+
+	_global_lock();
+	PrintHandlerList *l = print_handler_list;
+	while (l) {
+		l->printfunc(l->userdata, p_string, false, false);
+		l = l->next;
+	}
+
+	_global_unlock();
+}
+
 void __print_line(const String &p_string) {
 	if (!CoreGlobals::print_line_enabled) {
 		return;

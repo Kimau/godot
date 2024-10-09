@@ -56,6 +56,7 @@ String stringify_variants(const Variant &p_var, Args... p_args) {
 void add_print_handler(PrintHandlerList *p_handler);
 void remove_print_handler(const PrintHandlerList *p_handler);
 
+extern void __print_string(const String &p_string);
 extern void __print_line(const String &p_string);
 extern void __print_line_rich(const String &p_string);
 extern void print_error(const String &p_string);
@@ -68,6 +69,10 @@ extern bool is_print_verbose_enabled();
 			print_line(m_text);           \
 		}                                 \
 	}
+
+inline void print_string(const Variant &v) {
+	__print_string(stringify_variants(v));
+}
 
 inline void print_line(const Variant &v) {
 	__print_line(stringify_variants(v));
