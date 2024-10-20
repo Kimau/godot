@@ -100,7 +100,7 @@ msgstr ""
 "Project-Id-Version: Godot Engine properties\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2024-07-16 19:58+0000\n"
+"PO-Revision-Date: 2024-08-05 14:04+0000\n"
 "Last-Translator: Yılmaz Durmaz <yilmaz_durmaz@hotmail.com>\n"
 "Language-Team: Turkish <https://hosted.weblate.org/projects/godot-engine/"
 "godot-properties/tr/>\n"
@@ -249,6 +249,9 @@ msgstr "Varsayılan Veriyolu Düzeni"
 msgid "General"
 msgstr "Genel"
 
+msgid "Default Playback Type"
+msgstr "Varsayılan Oynatma Türü"
+
 msgid "Text to Speech"
 msgstr "Metin Okuma"
 
@@ -266,15 +269,6 @@ msgstr "Oturum Kategorisi"
 
 msgid "Mix With Others"
 msgstr "Diğerleri ile Karıştır"
-
-msgid "Editor"
-msgstr "Düzenleyici"
-
-msgid "Script"
-msgstr "Betik"
-
-msgid "Search in File Extensions"
-msgstr "Dosya Uzantılarında Ara"
 
 msgid "Subwindows"
 msgstr "Altpencereler"
@@ -317,6 +311,9 @@ msgstr "Profil Çıkarıcı"
 
 msgid "Max Functions"
 msgstr "En Fazla Fonksiyonlar"
+
+msgid "Max Timestamp Query Elements"
+msgstr "En Fazla Zaman Damgası Sorgusu Öğeleri"
 
 msgid "Compression"
 msgstr "Sıkıştırma"
@@ -924,6 +921,9 @@ msgstr "Kip Değiştir"
 msgid "Interface"
 msgstr "Arayüz"
 
+msgid "Editor"
+msgstr "Düzenleyici"
+
 msgid "Editor Language"
 msgstr "Düzenleyici Dili"
 
@@ -1395,6 +1395,15 @@ msgstr "Düğüm Seçildiğinde Betik Düzenleyicide Kal"
 msgid "Open Script When Connecting Signal to Existing Method"
 msgstr "Sinyali Mevcut Yönteme Bağlarken Komut Dosyasını Aç"
 
+msgid "Use Default Word Separators"
+msgstr "Varsayılan Kelime Ayırıcılarını Kullan"
+
+msgid "Use Custom Word Separators"
+msgstr "Özel Kelime Ayırıcıları Kullanın"
+
+msgid "Custom Word Separators"
+msgstr "Özel Kelime Ayırıcılar"
+
 msgid "Indent"
 msgstr "Girintile"
 
@@ -1694,6 +1703,9 @@ msgstr "Otomatik Pişirme Gecikmesi"
 
 msgid "Autorename Animation Tracks"
 msgstr "Animasyon İzlerini Otomatik Yeniden Adlandır"
+
+msgid "Confirm Insert Track"
+msgstr "Parça Eklemeyi Onayla"
 
 msgid "Default Create Bezier Tracks"
 msgstr "Varsayılan Olarak Bezier İzleri Oluştur"
@@ -2800,6 +2812,9 @@ msgstr "SSH Özel Anahtar Yolu"
 msgid "Main Run Args"
 msgstr "Oynatma Ana Girdi Değişkenleri"
 
+msgid "Script"
+msgstr "Betik"
+
 msgid "Templates Search Path"
 msgstr "Şablon Arama Yolu"
 
@@ -2877,6 +2892,12 @@ msgstr "En Çok Günlük Dosyası"
 
 msgid "Driver"
 msgstr "Sürücü"
+
+msgid "Fallback to Vulkan"
+msgstr "Son Çare Vulkan'a Geri Dön"
+
+msgid "Fallback to D3D12"
+msgstr "Son Çare D3D12'ye Geri Dön"
 
 msgid "GL Compatibility"
 msgstr "GL Uyumluluğu"
@@ -3048,6 +3069,9 @@ msgstr "Döner Giriş Kaydırma Ekseni"
 
 msgid "Text Driver"
 msgstr "Metin Sürücüsü"
+
+msgid "Search in File Extensions"
+msgstr "Dosya Uzantılarında Ara"
 
 msgid "Mouse Cursor"
 msgstr "Fare İmleci"
@@ -4333,6 +4357,9 @@ msgstr "Yalnızca Projeyi Dışa Aktar"
 msgid "Delete Old Export Files Unconditionally"
 msgstr "Eski Dışa Aktarma Dosyalarını Koşulsuz Sil"
 
+msgid "Generate Simulator Library If Missing"
+msgstr "Eksik ise, Simülatör Kitaplığı Oluştur"
+
 msgid "Capabilities"
 msgstr "Yetenekler"
 
@@ -4812,6 +4839,9 @@ msgstr "Veri Yolu"
 
 msgid "Area Mask"
 msgstr "Alan Maskesi"
+
+msgid "Playback Type"
+msgstr "Oynatma Türü"
 
 msgid "Copy Mode"
 msgstr "Kopyalama Kipi"
@@ -6491,6 +6521,12 @@ msgstr "Değiştirici"
 
 msgid "Callback Mode Process"
 msgstr "Geriçağır Kipi İşlemi"
+
+msgid "Deprecated"
+msgstr "Kullanım dışı"
+
+msgid "Animate Physical Bones"
+msgstr "Fiziksel Kemikleri Canlandır"
 
 msgid "Root Bone"
 msgstr "Kök Kemik"

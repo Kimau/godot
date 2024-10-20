@@ -6342,14 +6342,14 @@ msgstr "Ei saanud uut occluder'it salvestada antud teel:"
 msgid "Remove Point from Curve"
 msgstr "Eemalda Punkt Kõveralt"
 
-msgid "Split Curve"
-msgstr "Tükelda Kõver"
-
 msgid "Move Point in Curve"
 msgstr "Liiguta Kõvera Punkti"
 
 msgid "Add Point to Curve"
 msgstr "Lisa Punkt Kõverale"
+
+msgid "Split Curve"
+msgstr "Tükelda Kõver"
 
 msgid "Right Click: Delete Point"
 msgstr "Parem Klõps: Kustuda Punkt"
@@ -6948,12 +6948,6 @@ msgid ""
 msgstr ""
 "Redigeerimisrežiim\n"
 "Näita liigestel nuppe."
-
-msgid "Insert key of bone poses already exist track."
-msgstr "Sisestage luupooside võti juba olemas."
-
-msgid "Insert key of all bone poses."
-msgstr "Sisestage kõigi luupooside võti."
 
 msgid "Insert Key (All Bones)"
 msgstr "Sisesta võti (kõik luud)"
@@ -8689,11 +8683,11 @@ msgstr "Loo Uus Silt"
 msgid "It would be a good idea to name your project."
 msgstr "Hea mõte oleks oma Projektile nimi panna."
 
-msgid "Couldn't create project.godot in project path."
-msgstr "Projekti kaustas ei saanud faili project.godot luua."
-
 msgid "New Game Project"
 msgstr "Uus Mängu Projekt"
+
+msgid "Couldn't create project.godot in project path."
+msgstr "Projekti kaustas ei saanud faili project.godot luua."
 
 msgid "Import & Edit"
 msgstr "Impordi & Redigeeri"
