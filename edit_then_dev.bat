@@ -25,6 +25,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo -------------------------------------------------------------
+
 if exist bin_stable (
 	del /s /f /q bin_stable
 	rd bin_stable
@@ -48,6 +50,8 @@ if not exist bin (
     echo Failed to create bin directory for development build.
     exit /b 1
 )
+
+echo -------------------------------------------------------------
 
 REM Run scons for development build
 echo Running scons for development build...
