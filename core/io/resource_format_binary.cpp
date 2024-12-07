@@ -165,7 +165,7 @@ StringName ResourceLoaderBinary::_get_string() {
 		}
 		f->get_buffer((uint8_t *)&str_buf[0], len);
 		String s;
-		s.parse_utf8(&str_buf[0]);
+		s.parse_utf8(&str_buf[0], len);
 		return s;
 	}
 
@@ -833,7 +833,7 @@ Error ResourceLoaderBinary::load() {
 			}
 
 			bool set_valid = true;
-			if (value.get_type() == Variant::OBJECT && missing_resource != nullptr) {
+			if (value.get_type() == Variant::OBJECT && missing_resource == nullptr && ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
 				// If the property being set is a missing resource (and the parent is not),
 				// then setting it will most likely not work.
 				// Instead, save it as metadata.
@@ -921,7 +921,7 @@ static String get_ustring(Ref<FileAccess> f) {
 	str_buf.resize(len);
 	f->get_buffer((uint8_t *)&str_buf[0], len);
 	String s;
-	s.parse_utf8(&str_buf[0]);
+	s.parse_utf8(&str_buf[0], len);
 	return s;
 }
 
@@ -935,7 +935,7 @@ String ResourceLoaderBinary::get_unicode_string() {
 	}
 	f->get_buffer((uint8_t *)&str_buf[0], len);
 	String s;
-	s.parse_utf8(&str_buf[0]);
+	s.parse_utf8(&str_buf[0], len);
 	return s;
 }
 
@@ -1575,6 +1575,10 @@ ResourceUID::ID ResourceFormatLoaderBinary::get_resource_uid(const String &p_pat
 		return ResourceUID::INVALID_ID; //could not read
 	}
 	return loader.uid;
+}
+
+bool ResourceFormatLoaderBinary::has_custom_uid_support() const {
+	return true;
 }
 
 ///////////////////////////////////////////////////////////
@@ -2225,10 +2229,10 @@ Error ResourceFormatSaverBinaryInstance::save(const String &p_path, const Ref<Re
 
 	List<ResourceData> resources;
 
-	Dictionary missing_resource_properties = p_resource->get_meta(META_MISSING_RESOURCES, Dictionary());
-
 	{
 		for (const Ref<Resource> &E : saved_resources) {
+			Dictionary missing_resource_properties = E->get_meta(META_MISSING_RESOURCES, Dictionary());
+
 			ResourceData &rd = resources.push_back(ResourceData())->get();
 			rd.type = _resource_get_class(E);
 
@@ -2243,7 +2247,7 @@ Error ResourceFormatSaverBinaryInstance::save(const String &p_path, const Ref<Re
 					continue;
 				}
 
-				if ((F.usage & PROPERTY_USAGE_STORAGE)) {
+				if ((F.usage & PROPERTY_USAGE_STORAGE) || missing_resource_properties.has(F.name)) {
 					Property p;
 					p.name_idx = get_string_index(F.name);
 
@@ -2258,7 +2262,7 @@ Error ResourceFormatSaverBinaryInstance::save(const String &p_path, const Ref<Re
 						p.value = E->get(F.name);
 					}
 
-					if (p.pi.type == Variant::OBJECT && missing_resource_properties.has(F.name)) {
+					if (F.type == Variant::OBJECT && missing_resource_properties.has(F.name)) {
 						// Was this missing resource overridden? If so do not save the old value.
 						Ref<Resource> res = p.value;
 						if (res.is_null()) {

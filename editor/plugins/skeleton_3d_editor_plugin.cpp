@@ -1103,6 +1103,7 @@ void Skeleton3DEditor::create_editors() {
 	joint_tree->set_v_size_flags(SIZE_EXPAND_FILL);
 	joint_tree->set_h_size_flags(SIZE_EXPAND_FILL);
 	joint_tree->set_allow_rmb_select(true);
+	joint_tree->set_theme_type_variation("TreeSecondary");
 	SET_DRAG_FORWARDING_GCD(joint_tree, Skeleton3DEditor);
 	s_con->add_child(joint_tree);
 
@@ -1186,8 +1187,8 @@ Skeleton3DEditor::Skeleton3DEditor(EditorInspectorPluginSkeleton *e_plugin, Skel
 	singleton = this;
 
 	// Handle.
-	handle_material = Ref<ShaderMaterial>(memnew(ShaderMaterial));
-	handle_shader = Ref<Shader>(memnew(Shader));
+	handle_material.instantiate();
+	handle_shader.instantiate();
 	handle_shader->set_code(R"(
 // Skeleton 3D gizmo handle shader.
 
