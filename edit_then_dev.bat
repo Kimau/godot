@@ -60,4 +60,19 @@ if errorlevel 1 (
     echo Scons development build failed.
     exit /b 1
 )
+
+REM Copy Steam API DLL to both bin directories
+echo Copying Steam API DLL to bin folders...
+copy /Y "modules\platform\steamworks\redistributable_bin\steam_api64.dll" "bin_stable\"
+if errorlevel 1 (
+    echo Failed to copy Steam API DLL to bin_stable.
+    exit /b 1
+)
+
+copy /Y "modules\platform\steamworks\redistributable_bin\steam_api64.dll" "bin\"
+if errorlevel 1 (
+    echo Failed to copy Steam API DLL to bin.
+    exit /b 1
+)
+
 echo Development build completed successfully.
