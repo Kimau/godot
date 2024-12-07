@@ -84,6 +84,11 @@ if lib_arch_dir != "":
     )
     env_android.Command(out_dir + "/libc++_shared.so", stl_lib_path, Copy("$TARGET", "$SOURCE"))
 
+    # D:\Dev\puzzvr\platform_module\meta_android\libs\arm64-v8a\libovrplatformloader.so
+    #env_android.Command(out_dir + "/libovrplatformloader.so", 
+    #"#modules/platform/meta_android/libs/" + lib_arch_dir + "/libovrplatformloader.so", 
+    #Copy("$TARGET", "$SOURCE"))
+    
     def generate_apk(target, source, env):
         gradle_process = []
 
