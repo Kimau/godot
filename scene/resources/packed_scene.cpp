@@ -1060,11 +1060,12 @@ Error SceneState::_parse_connections(Node *p_owner, Node *p_node, HashMap<String
 				continue;
 			}
 
+			/* -- BROKEN CODE -- see https://github.com/godotengine/godot/issues/100097
 			// Don't include signals that are from scene instances
 			// (they are already saved in the scenes themselves).
 			if (c.flags & CONNECT_INHERITED) {
 				continue;
-			}
+			}*/
 
 			// only connections that originate or end into main saved scene are saved
 			// everything else is discarded
