@@ -591,11 +591,11 @@ TEST_CASE("[String] String to unsigned integer") {
 
 	// Spell out some clear edge cases
 	CHECK(String(" +  ").to_uint64(false) == 0);
-	CHECK(String("++-123").to_uint64(true) == 0); 
+	CHECK(String("++-123").to_uint64(true) == 0);
 	CHECK(String("+ + + +123").to_uint64(true) == 123);
 	CHECK(String("123-").to_uint64(true) == 123);
 	CHECK(String("123\n").to_uint64(true) == 123);
-	CHECK(String("123 everything afterwards is ignored").to_uint64(true) == 123); 
+	CHECK(String("123 everything afterwards is ignored").to_uint64(true) == 123);
 
 	// Test different string types
 	CHECK(String::to_uint64("12345") == 12345);

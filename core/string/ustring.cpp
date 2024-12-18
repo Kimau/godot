@@ -2755,7 +2755,7 @@ uint64_t String::to_uint64(bool p_clamp) const {
 	for (int i = start; i < str_length; i++) {
 		char32_t c = operator[](i);
 		if (!is_digit(c)) {
-			// By design we ignore ANYTHING after the number 
+			// By design we ignore ANYTHING after the number
 			break;
 		}
 
