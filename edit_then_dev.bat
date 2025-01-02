@@ -5,6 +5,7 @@ if exist bin (
     rmdir /s /q bin
     if exist bin (
         echo Failed to delete bin directory.
+        powershell -c (New-Object Media.SoundPlayer 'C:\Windows\Media\alarm10.wav').PlaySync()
         exit /b 1
     )
 )
@@ -14,6 +15,7 @@ echo Creating bin directory...
 mkdir bin
 if not exist bin (
     echo Failed to create bin directory.
+    powershell -c (New-Object Media.SoundPlayer 'C:\Windows\Media\alarm10.wav').PlaySync()
     exit /b 1
 )
 
@@ -22,6 +24,7 @@ echo Running scons for initial build...
 scons p=windows vsproj=no dev_build=no
 if errorlevel 1 (
     echo Scons initial build failed.
+    powershell -c (New-Object Media.SoundPlayer 'C:\Windows\Media\alarm10.wav').PlaySync()
     exit /b 1
 )
 
@@ -40,6 +43,7 @@ if exist bin_stable (
     echo Successfully renamed bin to bin_stable.
 ) else (
     echo Failed to rename bin directory.
+    powershell -c (New-Object Media.SoundPlayer 'C:\Windows\Media\alarm10.wav').PlaySync()
     exit /b 1
 )
 
@@ -48,6 +52,7 @@ echo Creating bin directory for development build...
 mkdir bin
 if not exist bin (
     echo Failed to create bin directory for development build.
+    powershell -c (New-Object Media.SoundPlayer 'C:\Windows\Media\alarm10.wav').PlaySync()
     exit /b 1
 )
 
@@ -58,6 +63,7 @@ echo Running scons for development build...
 scons p=windows vsproj=yes dev_build=yes
 if errorlevel 1 (
     echo Scons development build failed.
+    powershell -c (New-Object Media.SoundPlayer 'C:\Windows\Media\alarm10.wav').PlaySync()
     exit /b 1
 )
 
@@ -66,13 +72,18 @@ echo Copying Steam API DLL to bin folders...
 copy /Y "modules\platform\steamworks\redistributable_bin\steam_api64.dll" "bin_stable\"
 if errorlevel 1 (
     echo Failed to copy Steam API DLL to bin_stable.
+    powershell -c (New-Object Media.SoundPlayer 'C:\Windows\Media\alarm10.wav').PlaySync()
     exit /b 1
 )
 
 copy /Y "modules\platform\steamworks\redistributable_bin\steam_api64.dll" "bin\"
 if errorlevel 1 (
     echo Failed to copy Steam API DLL to bin.
+    powershell -c (New-Object Media.SoundPlayer 'C:\Windows\Media\alarm10.wav').PlaySync()
     exit /b 1
 )
 
 echo Development build completed successfully.
+powershell -c (New-Object Media.SoundPlayer 'C:\Windows\Media\alarm05.wav').PlaySync()
+REM EXIT
+
