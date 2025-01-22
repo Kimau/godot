@@ -5718,6 +5718,9 @@ void RenderingDevice::set_resource_name(RID p_id, const String &p_name) {
 	}
 #ifdef DEV_ENABLED
 	resource_names[p_id] = p_name;
+	if (debug_mem_latch) {
+		print_line(vformat("Setting resource name for RID %d: %s", p_id.get_id(), p_name));
+	}
 #endif
 }
 
@@ -6848,6 +6851,8 @@ void RenderingDevice::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_device_allocation_count"), &RenderingDevice::get_device_allocation_count);
 	ClassDB::bind_method(D_METHOD("get_device_memory_by_object_type", "type"), &RenderingDevice::get_device_memory_by_object_type);
 	ClassDB::bind_method(D_METHOD("get_device_allocs_by_object_type", "type"), &RenderingDevice::get_device_allocs_by_object_type);
+
+	ClassDB::bind_method(D_METHOD("debug_rid_latch", "enable"), &RenderingDevice::set_debug_rid_latch);
 
 	BIND_ENUM_CONSTANT(DEVICE_TYPE_OTHER);
 	BIND_ENUM_CONSTANT(DEVICE_TYPE_INTEGRATED_GPU);

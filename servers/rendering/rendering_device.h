@@ -1494,6 +1494,9 @@ public:
 	uint64_t get_device_memory_by_object_type(uint32_t p_type) const;
 	uint64_t get_device_allocs_by_object_type(uint32_t p_type) const;
 
+	bool debug_mem_latch = false;
+	void set_debug_rid_latch(bool enable) { debug_mem_latch = enable;  }
+
 	static RenderingDevice *get_singleton();
 
 	void make_current();
