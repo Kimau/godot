@@ -241,7 +241,6 @@ void fog() {
 			alert->popup_centered();
 			return;
 		}
-		EditorNode::get_singleton()->ensure_uid_file(lpath);
 
 		emit_signal(SNAME("shader_include_created"), shader_inc);
 	} else {
@@ -260,7 +259,6 @@ void fog() {
 				alert->popup_centered();
 				return;
 			}
-			EditorNode::get_singleton()->ensure_uid_file(lpath);
 		}
 
 		emit_signal(SNAME("shader_created"), shader);
@@ -292,7 +290,7 @@ void ShaderCreateDialog::_type_changed(int p_language) {
 	String extension = "";
 
 	if (!path.is_empty()) {
-		if (path.contains(".")) {
+		if (path.contains_char('.')) {
 			extension = path.get_extension();
 		}
 		if (extension.length() == 0) {
