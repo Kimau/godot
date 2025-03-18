@@ -563,6 +563,9 @@ RID RendererCanvasCull::canvas_item_allocate() {
 void RendererCanvasCull::canvas_item_initialize(RID p_rid) {
 	canvas_item_owner.initialize_rid(p_rid);
 	Item *instance = canvas_item_owner.get_or_null(p_rid);
+	ERR_FAIL_NULL(instance);
+
+
 	instance->self = p_rid;
 }
 
