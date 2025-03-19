@@ -48,7 +48,7 @@ Error ZIPPacker::close() {
 
 	Error err = zipClose(zf, nullptr) == ZIP_OK ? OK : FAILED;
 	if (err == OK) {
-		DEV_ASSERT(fa == nullptr);
+		DEV_ASSERT(fa.is_null());
 		zf = nullptr;
 	}
 
@@ -88,7 +88,7 @@ Error ZIPPacker::start_file(const String &p_path) {
 			Z_DEFAULT_STRATEGY,
 			nullptr,
 			0,
-			0x0314, // "version made by", 0x03 - Unix, 0x14 - ZIP specification version 2.0, required to store Unix file permissions.
+			0, // "version made by", indicates the compatibility of the file attribute information (the `external_fa` field above).
 			1 << 11); // Bit 11 is the language encoding flag. When set, filename and comment fields must be encoded using UTF-8.
 	return err == ZIP_OK ? OK : FAILED;
 }
