@@ -16,6 +16,7 @@ if env["steamapi"] and env.editor_build:
 
 if env["tests"]:
     env_main.Append(CPPDEFINES=["TESTS_ENABLED"])
+    print("Tests are enabled for this build")
 
 env_main.Depends("#main/splash.gen.h", "#main/splash.png")
 env_main.CommandNoCache(

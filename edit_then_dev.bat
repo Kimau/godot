@@ -86,7 +86,7 @@ powershell -command "$progress = New-Object -ComObject Shell.Application; $handl
 
 REM Run scons for development build
 echo Running scons for development build...
-scons p=windows vsproj=yes dev_build=yes
+scons p=windows vsproj=yes dev_build=yes tests=yes
 if errorlevel 1 (
     echo Scons development build failed.
     powershell -command "$progress = New-Object -ComObject Shell.Application; $handle = (Get-Process -PID $PID).MainWindowHandle; $progress.Windows() | Where-Object { $_.HWND -eq $handle } | ForEach-Object { $_.SetProgressState(4) }"
