@@ -281,6 +281,8 @@ opts.Add("linkflags", "Custom flags for the linker")
 opts.Add("asflags", "Custom flags for the assembler")
 opts.Add("arflags", "Custom flags for the archive tool")
 opts.Add("rcflags", "Custom flags for Windows resource compiler")
+opts.Add(EnumVariable("pservice", "Platform Service", "", ("", "steam", "quest", "dummy")))
+
 
 # Update the environment to have all above options defined
 # in following code (especially platform and custom_modules).
