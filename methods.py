@@ -682,13 +682,21 @@ def get_compiler_version(env):
         except (subprocess.CalledProcessError, OSError):
             print_warning("Couldn't find vswhere to determine compiler version.")
         return ret
-
+    
     # Not using -dumpversion as some GCC distros only return major, and
     # Clang used to return hardcoded 4.2.1: # https://reviews.llvm.org/D56803
     try:
-        version = subprocess.check_output(
-            shlex.split(env.subst(env["CXX"])) + ["--version"], shell=(os.name == "nt"), encoding="utf-8"
-        ).strip()
+        if os.name == "nt":
+            # On Windows, don't use shlex.split as it breaks backslashes
+            cmd = env.subst(env["CXX"])
+            version = subprocess.check_output(
+                f'"{cmd}" --version', shell=True, encoding="utf-8"
+            ).strip()
+        else:
+            # On Unix, use shlex.split as before
+            version = subprocess.check_output(
+                shlex.split(env.subst(env["CXX"])) + ["--version"], shell=False, encoding="utf-8"
+            ).strip()
     except (subprocess.CalledProcessError, OSError):
         print_warning("Couldn't parse CXX environment variable to infer compiler version.")
         return ret

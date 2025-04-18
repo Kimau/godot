@@ -68,7 +68,11 @@ def can_build():
 
 
 def get_mingw_bin_prefix(prefix, arch):
-    bin_prefix = (os.path.normpath(os.path.join(prefix, "bin")) + os.sep) if prefix else ""
+    # Ensure prefix has proper path separators
+    if prefix and not prefix.endswith(os.sep) and not prefix.endswith('/'):
+        prefix = os.path.normpath(prefix)
+    
+    bin_prefix = (os.path.join(prefix, "bin") + os.sep) if prefix else ""
     ARCH_PREFIXES = {
         "x86_64": "x86_64-w64-mingw32-",
         "x86_32": "i686-w64-mingw32-",
