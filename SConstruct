@@ -288,6 +288,11 @@ opts.Add(EnumVariable("pservice", "Platform Service", "", ("", "steam", "quest",
 # in following code (especially platform and custom_modules).
 opts.Update(env)
 
+# Print out all variables set by the custom files
+print(f"Variables set by custom files: {profile}")
+#for var, value in env.items():
+#    print(f"  {var} = {value}")
+
 # Setup caching logic early to catch everything.
 methods.prepare_cache(env)
 
@@ -587,7 +592,8 @@ if env["production"]:
     if env["platform"] == "android":
         env["swappy"] = methods.get_cmdline_bool("swappy", True)
     # LTO "auto" means we handle the preferred option in each platform detect.py.
-    env["lto"] = ARGUMENTS.get("lto", "auto")
+    if env["lto"] != "full":
+        env["lto"] = ARGUMENTS.get("lto", "auto")
 
 if env["strict_checks"]:
     env.Append(CPPDEFINES=["STRICT_CHECKS"])

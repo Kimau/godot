@@ -928,7 +928,7 @@ String ResourceLoaderBinary::get_unicode_string() {
 	if (len > str_buf.size()) {
 		str_buf.resize(len);
 	}
-	if (len == 0) {
+	if (len <= 0) {
 		return String();
 	}
 	f->get_buffer((uint8_t *)&str_buf[0], len);
