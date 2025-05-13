@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef IOS_EXPORT_PLUGIN_H
-#define IOS_EXPORT_PLUGIN_H
+#pragma once
 
 #include "godot_plugin_config.h"
 
@@ -41,13 +40,11 @@
 #include "core/io/zip_io.h"
 #include "core/os/os.h"
 #include "core/templates/safe_refcount.h"
-#include "core/version.h"
 #include "editor/editor_settings.h"
 #include "editor/export/editor_export_platform.h"
 #include "main/splash.gen.h"
 #include "scene/resources/image_texture.h"
 
-#include <string.h>
 #include <sys/stat.h>
 
 // Optional environment variables for defining confidential information. If any
@@ -136,8 +133,6 @@ class EditorExportPlatformIOS : public EditorExportPlatform {
 	Vector<ExportArchitecture> _get_supported_architectures() const;
 	Vector<String> _get_preset_architectures(const Ref<EditorExportPreset> &p_preset) const;
 
-	bool _archive_has_arm64(const String &p_path, uint32_t *r_cputype = nullptr, uint32_t *r_cpusubtype = nullptr) const;
-	int _archive_convert_to_simulator(const String &p_path) const;
 	void _check_xcframework_content(const String &p_path, int &r_total_libs, int &r_static_libs, int &r_dylibs, int &r_frameworks) const;
 	Error _convert_to_framework(const String &p_source, const String &p_destination, const String &p_id) const;
 
@@ -300,5 +295,3 @@ public:
 		return enabled_plugins;
 	}
 };
-
-#endif // IOS_EXPORT_PLUGIN_H

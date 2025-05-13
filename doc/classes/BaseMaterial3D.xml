@@ -182,6 +182,9 @@
 		<member name="disable_receive_shadows" type="bool" setter="set_flag" getter="get_flag" default="false">
 			If [code]true[/code], the object receives no shadow that would otherwise be cast onto it.
 		</member>
+		<member name="disable_specular_occlusion" type="bool" setter="set_flag" getter="get_flag" default="false">
+			If [code]true[/code], disables specular occlusion even if [member ProjectSettings.rendering/reflections/specular_occlusion/enabled] is [code]false[/code].
+		</member>
 		<member name="distance_fade_max_distance" type="float" setter="set_distance_fade_max_distance" getter="get_distance_fade_max_distance" default="10.0">
 			Distance at which the object appears fully opaque.
 			[b]Note:[/b] If [member distance_fade_max_distance] is less than [member distance_fade_min_distance], the behavior will be reversed. The object will start to fade away at [member distance_fade_max_distance] and will fully disappear once it reaches [member distance_fade_min_distance].
@@ -215,7 +218,7 @@
 			Texture that specifies how much surface emits light at a given point.
 		</member>
 		<member name="fixed_size" type="bool" setter="set_flag" getter="get_flag" default="false">
-			If [code]true[/code], the object is rendered at the same size regardless of distance.
+			If [code]true[/code], the object is rendered at the same size regardless of distance. The object's size on screen is the same as if the camera was [code]1.0[/code] units away from the object's origin, regardless of the actual distance from the camera. The [Camera3D]'s field of view (or [member Camera3D.size] when in orthogonal/frustum mode) still affects the size the object is drawn at.
 		</member>
 		<member name="grow" type="bool" setter="set_grow_enabled" getter="is_grow_enabled" default="false">
 			If [code]true[/code], enables the vertex grow setting. This can be used to create mesh-based outlines using a second material pass and its [member cull_mode] set to [constant CULL_FRONT]. See also [member grow_amount].
@@ -706,7 +709,10 @@
 		<constant name="FLAG_DISABLE_FOG" value="21" enum="Flags">
 			Disables receiving depth-based or volumetric fog.
 		</constant>
-		<constant name="FLAG_MAX" value="22" enum="Flags">
+		<constant name="FLAG_DISABLE_SPECULAR_OCCLUSION" value="22" enum="Flags">
+			Disables specular occlusion.
+		</constant>
+		<constant name="FLAG_MAX" value="23" enum="Flags">
 			Represents the size of the [enum Flags] enum.
 		</constant>
 		<constant name="DIFFUSE_BURLEY" value="0" enum="DiffuseMode">
@@ -723,6 +729,8 @@
 		</constant>
 		<constant name="SPECULAR_SCHLICK_GGX" value="0" enum="SpecularMode">
 			Default specular blob.
+			[b]Note:[/b] Forward+ uses multiscattering for more accurate reflections, although the impact of multiscattering is more noticeable on rough metallic surfaces than on smooth, non-metallic surfaces.
+			[b]Note:[/b] Mobile and Compatibility don't perform multiscattering for performance reasons. Instead, they perform single scattering, which means rough metallic surfaces may look slightly darker than intended.
 		</constant>
 		<constant name="SPECULAR_TOON" value="1" enum="SpecularMode">
 			Toon blob which changes size based on roughness.

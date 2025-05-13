@@ -57,7 +57,7 @@ constexpr double DEFAULT_CONTACT_MAX_SEPARATION = 0.05;
 constexpr double DEFAULT_CONTACT_MAX_ALLOWED_PENETRATION = 0.01;
 constexpr double DEFAULT_CONTACT_DEFAULT_BIAS = 0.8;
 constexpr double DEFAULT_SLEEP_THRESHOLD_LINEAR = 0.1;
-constexpr double DEFAULT_SLEEP_THRESHOLD_ANGULAR = 8.0 * Math_PI / 180;
+constexpr double DEFAULT_SLEEP_THRESHOLD_ANGULAR = 8.0 * Math::PI / 180;
 constexpr double DEFAULT_SOLVER_ITERATIONS = 8;
 
 } // namespace
@@ -98,23 +98,23 @@ JoltSpace3D::JoltSpace3D(JPH::JobSystem *p_job_system) :
 		layers(new JoltLayers()),
 		contact_listener(new JoltContactListener3D(this)),
 		physics_system(new JPH::PhysicsSystem()) {
-	physics_system->Init((JPH::uint)JoltProjectSettings::get_max_bodies(), 0, (JPH::uint)JoltProjectSettings::get_max_pairs(), (JPH::uint)JoltProjectSettings::get_max_contact_constraints(), *layers, *layers, *layers);
+	physics_system->Init((JPH::uint)JoltProjectSettings::max_bodies, 0, (JPH::uint)JoltProjectSettings::max_body_pairs, (JPH::uint)JoltProjectSettings::max_contact_constraints, *layers, *layers, *layers);
 
 	JPH::PhysicsSettings settings;
-	settings.mBaumgarte = JoltProjectSettings::get_baumgarte_stabilization_factor();
-	settings.mSpeculativeContactDistance = JoltProjectSettings::get_speculative_contact_distance();
-	settings.mPenetrationSlop = JoltProjectSettings::get_penetration_slop();
-	settings.mLinearCastThreshold = JoltProjectSettings::get_ccd_movement_threshold();
-	settings.mLinearCastMaxPenetration = JoltProjectSettings::get_ccd_max_penetration();
-	settings.mBodyPairCacheMaxDeltaPositionSq = JoltProjectSettings::get_body_pair_cache_distance_sq();
-	settings.mBodyPairCacheCosMaxDeltaRotationDiv2 = JoltProjectSettings::get_body_pair_cache_angle_cos_div2();
-	settings.mNumVelocitySteps = (JPH::uint)JoltProjectSettings::get_simulation_velocity_steps();
-	settings.mNumPositionSteps = (JPH::uint)JoltProjectSettings::get_simulation_position_steps();
-	settings.mMinVelocityForRestitution = JoltProjectSettings::get_bounce_velocity_threshold();
-	settings.mTimeBeforeSleep = JoltProjectSettings::get_sleep_time_threshold();
-	settings.mPointVelocitySleepThreshold = JoltProjectSettings::get_sleep_velocity_threshold();
-	settings.mUseBodyPairContactCache = JoltProjectSettings::is_body_pair_contact_cache_enabled();
-	settings.mAllowSleeping = JoltProjectSettings::is_sleep_allowed();
+	settings.mBaumgarte = JoltProjectSettings::baumgarte_stabilization_factor;
+	settings.mSpeculativeContactDistance = JoltProjectSettings::speculative_contact_distance;
+	settings.mPenetrationSlop = JoltProjectSettings::penetration_slop;
+	settings.mLinearCastThreshold = JoltProjectSettings::ccd_movement_threshold;
+	settings.mLinearCastMaxPenetration = JoltProjectSettings::ccd_max_penetration;
+	settings.mBodyPairCacheMaxDeltaPositionSq = JoltProjectSettings::body_pair_cache_distance_sq;
+	settings.mBodyPairCacheCosMaxDeltaRotationDiv2 = JoltProjectSettings::body_pair_cache_angle_cos_div2;
+	settings.mNumVelocitySteps = (JPH::uint)JoltProjectSettings::simulation_velocity_steps;
+	settings.mNumPositionSteps = (JPH::uint)JoltProjectSettings::simulation_position_steps;
+	settings.mMinVelocityForRestitution = JoltProjectSettings::bounce_velocity_threshold;
+	settings.mTimeBeforeSleep = JoltProjectSettings::sleep_time_threshold;
+	settings.mPointVelocitySleepThreshold = JoltProjectSettings::sleep_velocity_threshold;
+	settings.mUseBodyPairContactCache = JoltProjectSettings::body_pair_contact_cache_enabled;
+	settings.mAllowSleeping = JoltProjectSettings::sleep_allowed;
 
 	physics_system->SetPhysicsSettings(settings);
 	physics_system->SetGravity(JPH::Vec3::sZero());
@@ -122,7 +122,7 @@ JoltSpace3D::JoltSpace3D(JPH::JobSystem *p_job_system) :
 	physics_system->SetSoftBodyContactListener(contact_listener);
 
 	physics_system->SetCombineFriction([](const JPH::Body &p_body1, const JPH::SubShapeID &p_sub_shape_id1, const JPH::Body &p_body2, const JPH::SubShapeID &p_sub_shape_id2) {
-		return ABS(MIN(p_body1.GetFriction(), p_body2.GetFriction()));
+		return Math::abs(MIN(p_body1.GetFriction(), p_body2.GetFriction()));
 	});
 
 	physics_system->SetCombineRestitution([](const JPH::Body &p_body1, const JPH::SubShapeID &p_sub_shape_id1, const JPH::Body &p_body2, const JPH::SubShapeID &p_sub_shape_id2) {
@@ -169,21 +169,21 @@ void JoltSpace3D::step(float p_step) {
 		WARN_PRINT_ONCE(vformat("Jolt Physics manifold cache exceeded capacity and contacts were ignored. "
 								"Consider increasing maximum number of contact constraints in project settings. "
 								"Maximum number of contact constraints is currently set to %d.",
-				JoltProjectSettings::get_max_contact_constraints()));
+				JoltProjectSettings::max_contact_constraints));
 	}
 
 	if ((update_error & JPH::EPhysicsUpdateError::BodyPairCacheFull) != JPH::EPhysicsUpdateError::None) {
 		WARN_PRINT_ONCE(vformat("Jolt Physics body pair cache exceeded capacity and contacts were ignored. "
 								"Consider increasing maximum number of body pairs in project settings. "
 								"Maximum number of body pairs is currently set to %d.",
-				JoltProjectSettings::get_max_pairs()));
+				JoltProjectSettings::max_body_pairs));
 	}
 
 	if ((update_error & JPH::EPhysicsUpdateError::ContactConstraintsFull) != JPH::EPhysicsUpdateError::None) {
 		WARN_PRINT_ONCE(vformat("Jolt Physics contact constraint buffer exceeded capacity and contacts were ignored. "
 								"Consider increasing maximum number of contact constraints in project settings. "
 								"Maximum number of contact constraints is currently set to %d.",
-				JoltProjectSettings::get_max_contact_constraints()));
+				JoltProjectSettings::max_contact_constraints));
 	}
 
 	_post_step(p_step);
@@ -227,7 +227,7 @@ double JoltSpace3D::get_param(PhysicsServer3D::SpaceParameter p_param) const {
 			return DEFAULT_SLEEP_THRESHOLD_ANGULAR;
 		}
 		case PhysicsServer3D::SPACE_PARAM_BODY_TIME_TO_SLEEP: {
-			return JoltProjectSettings::get_sleep_time_threshold();
+			return JoltProjectSettings::sleep_time_threshold;
 		}
 		case PhysicsServer3D::SPACE_PARAM_SOLVER_ITERATIONS: {
 			return DEFAULT_SOLVER_ITERATIONS;
@@ -298,28 +298,53 @@ void JoltSpace3D::map_from_object_layer(JPH::ObjectLayer p_object_layer, JPH::Br
 	layers->from_object_layer(p_object_layer, r_broad_phase_layer, r_collision_layer, r_collision_mask);
 }
 
-JoltReadableBody3D JoltSpace3D::read_body(const JPH::BodyID &p_body_id) const {
-	return JoltReadableBody3D(*this, p_body_id);
+JPH::Body *JoltSpace3D::try_get_jolt_body(const JPH::BodyID &p_body_id) const {
+	return get_lock_iface().TryGetBody(p_body_id);
 }
 
-JoltReadableBody3D JoltSpace3D::read_body(const JoltObject3D &p_object) const {
-	return read_body(p_object.get_jolt_id());
+JoltObject3D *JoltSpace3D::try_get_object(const JPH::BodyID &p_body_id) const {
+	const JPH::Body *jolt_body = try_get_jolt_body(p_body_id);
+	if (unlikely(jolt_body == nullptr)) {
+		return nullptr;
+	}
+
+	return reinterpret_cast<JoltObject3D *>(jolt_body->GetUserData());
 }
 
-JoltWritableBody3D JoltSpace3D::write_body(const JPH::BodyID &p_body_id) const {
-	return JoltWritableBody3D(*this, p_body_id);
+JoltShapedObject3D *JoltSpace3D::try_get_shaped(const JPH::BodyID &p_body_id) const {
+	JoltObject3D *object = try_get_object(p_body_id);
+	if (unlikely(object == nullptr)) {
+		return nullptr;
+	}
+
+	return object->as_shaped();
 }
 
-JoltWritableBody3D JoltSpace3D::write_body(const JoltObject3D &p_object) const {
-	return write_body(p_object.get_jolt_id());
+JoltBody3D *JoltSpace3D::try_get_body(const JPH::BodyID &p_body_id) const {
+	JoltObject3D *object = try_get_object(p_body_id);
+	if (unlikely(object == nullptr)) {
+		return nullptr;
+	}
+
+	return object->as_body();
 }
 
-JoltReadableBodies3D JoltSpace3D::read_bodies(const JPH::BodyID *p_body_ids, int p_body_count) const {
-	return JoltReadableBodies3D(*this, p_body_ids, p_body_count);
+JoltArea3D *JoltSpace3D::try_get_area(const JPH::BodyID &p_body_id) const {
+	JoltObject3D *object = try_get_object(p_body_id);
+	if (unlikely(object == nullptr)) {
+		return nullptr;
+	}
+
+	return object->as_area();
 }
 
-JoltWritableBodies3D JoltSpace3D::write_bodies(const JPH::BodyID *p_body_ids, int p_body_count) const {
-	return JoltWritableBodies3D(*this, p_body_ids, p_body_count);
+JoltSoftBody3D *JoltSpace3D::try_get_soft_body(const JPH::BodyID &p_body_id) const {
+	JoltObject3D *object = try_get_object(p_body_id);
+	if (unlikely(object == nullptr)) {
+		return nullptr;
+	}
+
+	return object->as_soft_body();
 }
 
 JoltPhysicsDirectSpaceState3D *JoltSpace3D::get_direct_state() {
@@ -346,38 +371,40 @@ void JoltSpace3D::set_default_area(JoltArea3D *p_area) {
 	}
 }
 
-JPH::BodyID JoltSpace3D::add_rigid_body(const JoltObject3D &p_object, const JPH::BodyCreationSettings &p_settings, bool p_sleeping) {
-	const JPH::BodyID body_id = get_body_iface().CreateAndAddBody(p_settings, p_sleeping ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
-
-	if (unlikely(body_id.IsInvalid())) {
+JPH::Body *JoltSpace3D::add_rigid_body(const JoltObject3D &p_object, const JPH::BodyCreationSettings &p_settings, bool p_sleeping) {
+	JPH::BodyInterface &body_iface = get_body_iface();
+	JPH::Body *jolt_body = body_iface.CreateBody(p_settings);
+	if (unlikely(jolt_body == nullptr)) {
 		ERR_PRINT_ONCE(vformat("Failed to create underlying Jolt Physics body for '%s'. "
 							   "Consider increasing maximum number of bodies in project settings. "
 							   "Maximum number of bodies is currently set to %d.",
-				p_object.to_string(), JoltProjectSettings::get_max_bodies()));
+				p_object.to_string(), JoltProjectSettings::max_bodies));
 
-		return JPH::BodyID();
+		return nullptr;
 	}
 
+	body_iface.AddBody(jolt_body->GetID(), p_sleeping ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
 	bodies_added_since_optimizing += 1;
 
-	return body_id;
+	return jolt_body;
 }
 
-JPH::BodyID JoltSpace3D::add_soft_body(const JoltObject3D &p_object, const JPH::SoftBodyCreationSettings &p_settings, bool p_sleeping) {
-	const JPH::BodyID body_id = get_body_iface().CreateAndAddSoftBody(p_settings, p_sleeping ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
-
-	if (unlikely(body_id.IsInvalid())) {
+JPH::Body *JoltSpace3D::add_soft_body(const JoltObject3D &p_object, const JPH::SoftBodyCreationSettings &p_settings, bool p_sleeping) {
+	JPH::BodyInterface &body_iface = get_body_iface();
+	JPH::Body *jolt_body = body_iface.CreateSoftBody(p_settings);
+	if (unlikely(jolt_body == nullptr)) {
 		ERR_PRINT_ONCE(vformat("Failed to create underlying Jolt Physics body for '%s'. "
 							   "Consider increasing maximum number of bodies in project settings. "
 							   "Maximum number of bodies is currently set to %d.",
-				p_object.to_string(), JoltProjectSettings::get_max_bodies()));
+				p_object.to_string(), JoltProjectSettings::max_bodies));
 
-		return JPH::BodyID();
+		return nullptr;
 	}
 
+	body_iface.AddBody(jolt_body->GetID(), p_sleeping ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
 	bodies_added_since_optimizing += 1;
 
-	return body_id;
+	return jolt_body;
 }
 
 void JoltSpace3D::remove_body(const JPH::BodyID &p_body_id) {

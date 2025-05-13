@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef OS_H
-#define OS_H
+#pragma once
 
 #include "core/config/engine.h"
 #include "core/io/logger.h"
@@ -39,7 +38,7 @@
 #include "core/templates/list.h"
 #include "core/templates/vector.h"
 
-#include <stdlib.h>
+#include <cstdlib>
 
 class OS {
 	static OS *singleton;
@@ -109,9 +108,9 @@ protected:
 
 	HasServerFeatureCallback has_server_feature_callback = nullptr;
 	bool _separate_thread_render = false;
+	bool _silent_crash_handler = false;
 
 	// Functions used by Main to initialize/deinitialize the OS.
-	void add_logger(Logger *p_logger);
 
 	virtual void initialize() = 0;
 	virtual void initialize_joypads() = 0;
@@ -142,7 +141,7 @@ public:
 	virtual Vector<String> get_video_adapter_driver_info() const = 0;
 	virtual bool get_user_prefers_integrated_gpu() const { return false; }
 
-	void print_error(const char *p_function, const char *p_file, int p_line, const char *p_code, const char *p_rationale, bool p_editor_notify = false, Logger::ErrorType p_type = Logger::ERR_ERROR);
+	void print_error(const char *p_function, const char *p_file, int p_line, const char *p_code, const char *p_rationale, bool p_editor_notify = false, Logger::ErrorType p_type = Logger::ERR_ERROR, const Vector<Ref<ScriptBacktrace>> &p_script_backtraces = {});
 	void print(const char *p_format, ...) _PRINTF_FORMAT_ATTRIBUTE_2_3;
 	void print_rich(const char *p_format, ...) _PRINTF_FORMAT_ATTRIBUTE_2_3;
 	void printerr(const char *p_format, ...) _PRINTF_FORMAT_ATTRIBUTE_2_3;
@@ -262,6 +261,12 @@ public:
 	void set_stdout_enabled(bool p_enabled);
 	void set_stderr_enabled(bool p_enabled);
 
+	virtual void set_crash_handler_silent() { _silent_crash_handler = true; }
+	virtual bool is_crash_handler_silent() { return _silent_crash_handler; }
+
+	virtual String multibyte_to_string(const String &p_encoding, const PackedByteArray &p_array) const;
+	virtual PackedByteArray string_to_multibyte(const String &p_encoding, const String &p_string) const;
+
 	virtual void disable_crash_handler() {}
 	virtual bool is_disable_crash_handler() const { return false; }
 	virtual void initialize_debugging() {}
@@ -347,6 +352,8 @@ public:
 
 	virtual Error setup_remote_filesystem(const String &p_server_host, int p_port, const String &p_password, String &r_project_path);
 
+	void add_logger(Logger *p_logger);
+
 	enum PreferredTextureFormat {
 		PREFERRED_TEXTURE_FORMAT_S3TC_BPTC,
 		PREFERRED_TEXTURE_FORMAT_ETC2_ASTC
@@ -358,8 +365,10 @@ public:
 	// This is invoked by the GDExtensionManager after loading GDExtensions specified by the project.
 	virtual void load_platform_gdextensions() const {}
 
+	// Tests OpenGL context and Rendering Device simultaneous creation. This function is expected to crash on some NVIDIA drivers.
+	virtual bool _test_create_rendering_device_and_gl(const String &p_display_driver) const { return true; }
+	virtual bool _test_create_rendering_device(const String &p_display_driver) const { return true; }
+
 	OS();
 	virtual ~OS();
 };
-
-#endif // OS_H

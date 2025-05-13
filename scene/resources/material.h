@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef MATERIAL_H
-#define MATERIAL_H
+#pragma once
 
 #include "core/io/resource.h"
 #include "core/templates/self_list.h"
@@ -268,6 +267,7 @@ public:
 		FLAG_PARTICLE_TRAILS_MODE,
 		FLAG_ALBEDO_TEXTURE_MSDF,
 		FLAG_DISABLE_FOG,
+		FLAG_DISABLE_SPECULAR_OCCLUSION,
 		FLAG_MAX
 	};
 
@@ -842,5 +842,3 @@ public:
 };
 
 //////////////////////
-
-#endif // MATERIAL_H
