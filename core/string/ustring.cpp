@@ -2433,7 +2433,7 @@ uint64_t String::to_uint64(bool p_clamp) const {
 uint64_t String::to_uint64(const char *p_str, int p_len) {
 	String str;
 	if (p_len >= 0) {
-		str = String(p_str, p_len);
+		str.append_utf8(Span<char>(p_str, p_len));
 	} else {
 		str = String(p_str);
 	}
@@ -2444,12 +2444,24 @@ uint64_t String::to_uint64(const char *p_str, int p_len) {
 uint64_t String::to_uint64(const wchar_t *p_str, int p_len) {
 	String str;
 	if (p_len >= 0) {
-		str = String(p_str, p_len);
+		str.append_wstring(Span<wchar_t>(p_str, p_len));
 	} else {
 		str = String(p_str);
 	}
 
 	return str.to_uint64();
+}
+
+
+uint64_t String::to_uint64(const char32_t *p_str, int p_len, bool p_clamp) {
+	String str;
+	if (p_len >= 0) {
+		str.append_utf32(Span<char32_t>(p_str, p_len));
+	} else {
+		str = String(p_str);
+	}
+
+	return str.to_uint64(p_clamp);
 }
 
 bool String::is_numeric() const {
@@ -2791,17 +2803,6 @@ int64_t String::to_int(const char32_t *p_str, int p_len, bool p_clamp) {
 	}
 
 	return sign * integer;
-}
-
-uint64_t String::to_uint64(const char32_t *p_str, int p_len, bool p_clamp) {
-	String str;
-	if (p_len >= 0) {
-		str = String(p_str, p_len);
-	} else {
-		str = String(p_str);
-	}
-
-	return str.to_uint64(p_clamp);
 }
 
 double String::to_float() const {
