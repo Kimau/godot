@@ -3790,8 +3790,6 @@ String Main::get_rendering_driver_name() {
 // everything the main loop needs to know about frame timings
 static MainTimerSync main_timer_sync;
 
-void notify_platform_start(); // NASTY
-
 // Return value should be EXIT_SUCCESS if we start successfully
 // and should move on to `OS::run`, and EXIT_FAILURE otherwise for
 // an early exit with that error code.
@@ -4577,9 +4575,6 @@ int Main::start() {
 			OS::get_singleton()->delay_usec(minimum_time - elapsed_time);
 		}
 	}
-
-	// Urgh I hate this but fuck it for now
-	notify_platform_start();
 
 	OS::get_singleton()->benchmark_end_measure("Startup", "Main::Start");
 	OS::get_singleton()->benchmark_dump();
