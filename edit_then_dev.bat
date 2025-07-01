@@ -94,30 +94,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Step 7/8: Copying Steam API DLL to bin folders...
-powershell -command "$progress = New-Object -ComObject Shell.Application; $handle = (Get-Process -PID $PID).MainWindowHandle; $progress.Windows() | Where-Object { $_.HWND -eq $handle } | ForEach-Object { $_.SetProgressValue(87, 100) }"
-
-REM Copy Steam API DLL to both bin directories
-echo Copying Steam API DLL to bin folders...
-copy /Y "modules\platform\steamworks\redistributable_bin\steam_api64.dll" "bin_stable\"
-if errorlevel 1 (
-    echo Failed to copy Steam API DLL to bin_stable.
-    powershell -command "$progress = New-Object -ComObject Shell.Application; $handle = (Get-Process -PID $PID).MainWindowHandle; $progress.Windows() | Where-Object { $_.HWND -eq $handle } | ForEach-Object { $_.SetProgressState(4) }"
-    powershell -c "[System.Media.SoundPlayer]::new('C:\Windows\Media\alarm10.wav').PlaySync()"
-    exit /b 1
-)
-
-echo Step 8/8: Finalizing...
-powershell -command "$progress = New-Object -ComObject Shell.Application; $handle = (Get-Process -PID $PID).MainWindowHandle; $progress.Windows() | Where-Object { $_.HWND -eq $handle } | ForEach-Object { $_.SetProgressValue(95, 100) }"
-
-copy /Y "modules\platform\steamworks\redistributable_bin\steam_api64.dll" "bin\"
-if errorlevel 1 (
-    echo Failed to copy Steam API DLL to bin.
-    powershell -command "$progress = New-Object -ComObject Shell.Application; $handle = (Get-Process -PID $PID).MainWindowHandle; $progress.Windows() | Where-Object { $_.HWND -eq $handle } | ForEach-Object { $_.SetProgressState(4) }"
-    powershell -c "[System.Media.SoundPlayer]::new('C:\Windows\Media\alarm10.wav').PlaySync()"
-    exit /b 1
-)
-
 powershell -command "$progress = New-Object -ComObject Shell.Application; $handle = (Get-Process -PID $PID).MainWindowHandle; $progress.Windows() | Where-Object { $_.HWND -eq $handle } | ForEach-Object { $_.SetProgressValue(100, 100) }"
 
 echo Development build completed successfully.
