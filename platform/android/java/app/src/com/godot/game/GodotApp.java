@@ -28,6 +28,8 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
+// Stupid version 2025-07-24-13:44
+
 package com.godot.game;
 
 import org.godotengine.godot.GodotActivity;
@@ -54,6 +56,7 @@ public class GodotApp extends GodotActivity {
 				Log.e("GODOT", "Unable to load System.Security.Cryptography.Native.Android library");
 			}
 		}
+
 	}
 
 	@Override
