@@ -453,7 +453,7 @@ bool ShaderRD::_load_from_cache(Version *p_version, int p_group) {
 
 	char header[5] = { 0, 0, 0, 0, 0 };
 	f->get_buffer((uint8_t *)header, 4);
-	ERR_FAIL_COND_V(header != String(shader_file_header), false);
+	ERR_FAIL_COND_V_MSG(header != String(shader_file_header), false, vformat("ShaderRD Cache - %s:%d header mismatch", path, p_group));
 
 	uint32_t file_version = f->get_32();
 	if (file_version != cache_file_version) {
@@ -462,12 +462,12 @@ bool ShaderRD::_load_from_cache(Version *p_version, int p_group) {
 
 	uint32_t variant_count = f->get_32();
 
-	ERR_FAIL_COND_V(variant_count != (uint32_t)group_to_variant_map[p_group].size(), false); //should not happen but check
+	ERR_FAIL_COND_V_MSG(variant_count != (uint32_t)group_to_variant_map[p_group].size(), false, vformat("ShaderRD Cache - %s:%d NO VARIANTS!", path, p_group)); //should not happen but check
 
 	for (uint32_t i = 0; i < variant_count; i++) {
 		int variant_id = group_to_variant_map[p_group][i];
 		uint32_t variant_size = f->get_32();
-		ERR_FAIL_COND_V(variant_size == 0 && variants_enabled[variant_id], false);
+		ERR_FAIL_COND_V_MSG(variant_size == 0 && variants_enabled[variant_id], false, vformat("ShaderRD Cache - %s:%d variant %u size is 0", path, p_group, i));
 		if (!variants_enabled[variant_id]) {
 			continue;
 		}
@@ -476,7 +476,7 @@ bool ShaderRD::_load_from_cache(Version *p_version, int p_group) {
 
 		uint32_t br = f->get_buffer(variant_bytes.ptrw(), variant_size);
 
-		ERR_FAIL_COND_V(br != variant_size, false);
+		ERR_FAIL_COND_V_MSG(br != variant_size, false, vformat("ShaderRD Cache - %s:%d variant %u size %u != %u buff size", path, p_group, i, variant_size, br));
 
 		p_version->variant_data.write[variant_id] = variant_bytes;
 	}
@@ -494,7 +494,7 @@ bool ShaderRD::_load_from_cache(Version *p_version, int p_group) {
 					int variant_free_id = group_to_variant_map[p_group][j];
 					RD::get_singleton()->free(p_version->variants[variant_free_id]);
 				}
-				ERR_FAIL_COND_V(shader.is_null(), false);
+				ERR_FAIL_COND_V_MSG(shader.is_null(), false, vformat("ShaderRD Cache - %s:%d failed to get bytecode - var %u", path, p_group, i));
 			}
 
 			p_version->variants.write[variant_id] = shader;
