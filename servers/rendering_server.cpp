@@ -1373,11 +1373,14 @@ Error RenderingServer::mesh_create_surface_data_from_arrays(SurfaceData *r_surfa
 	return OK;
 }
 
-void RenderingServer::mesh_add_surface_from_arrays(RID p_mesh, PrimitiveType p_primitive, const Array &p_arrays, const Array &p_blend_shapes, const Dictionary &p_lods, BitField<ArrayFormat> p_compress_format) {
+void RenderingServer::mesh_add_surface_from_arrays(RID p_mesh, PrimitiveType p_primitive, const Array &p_arrays, const Array &p_blend_shapes, const Dictionary &p_lods, BitField<ArrayFormat> p_compress_format, RID p_material) {
 	SurfaceData sd;
 	Error err = mesh_create_surface_data_from_arrays(&sd, p_primitive, p_arrays, p_blend_shapes, p_lods, p_compress_format);
 	if (err != OK) {
 		return;
+	}
+	if (p_material.is_valid()) {
+		sd.material = p_material;
 	}
 	mesh_add_surface(p_mesh, sd);
 }
@@ -2338,7 +2341,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("mesh_surface_get_format_attribute_stride", "format", "vertex_count"), &RenderingServer::mesh_surface_get_format_attribute_stride);
 	ClassDB::bind_method(D_METHOD("mesh_surface_get_format_skin_stride", "format", "vertex_count"), &RenderingServer::mesh_surface_get_format_skin_stride);
 	ClassDB::bind_method(D_METHOD("mesh_add_surface", "mesh", "surface"), &RenderingServer::_mesh_add_surface);
-	ClassDB::bind_method(D_METHOD("mesh_add_surface_from_arrays", "mesh", "primitive", "arrays", "blend_shapes", "lods", "compress_format"), &RenderingServer::mesh_add_surface_from_arrays, DEFVAL(Array()), DEFVAL(Dictionary()), DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("mesh_add_surface_from_arrays", "mesh", "primitive", "arrays", "blend_shapes", "lods", "compress_format", "material"), &RenderingServer::mesh_add_surface_from_arrays, DEFVAL(Array()), DEFVAL(Dictionary()), DEFVAL(0), DEFVAL(RID()));
 	ClassDB::bind_method(D_METHOD("mesh_get_blend_shape_count", "mesh"), &RenderingServer::mesh_get_blend_shape_count);
 	ClassDB::bind_method(D_METHOD("mesh_set_blend_shape_mode", "mesh", "mode"), &RenderingServer::mesh_set_blend_shape_mode);
 	ClassDB::bind_method(D_METHOD("mesh_get_blend_shape_mode", "mesh"), &RenderingServer::mesh_get_blend_shape_mode);

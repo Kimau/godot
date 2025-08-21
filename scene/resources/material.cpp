@@ -2841,6 +2841,13 @@ BaseMaterial3D::TextureChannel BaseMaterial3D::get_refraction_texture_channel() 
 	return refraction_texture_channel;
 }
 
+
+RID BaseMaterial3D::get_material_rid_for_2d(bool p_shaded, Transparency p_transparency, bool p_double_sided, bool p_billboard, bool p_billboard_y, bool p_msdf, bool p_no_depth, bool p_fixed_size, TextureFilter p_filter, AlphaAntiAliasing p_alpha_antialiasing_mode) {
+	RID shader_rid;
+	get_material_for_2d(p_shaded, p_transparency, p_double_sided, p_billboard, p_billboard_y, p_msdf, p_no_depth, p_fixed_size, p_filter, p_alpha_antialiasing_mode, &shader_rid);
+	return shader_rid;
+}
+
 Ref<Material> BaseMaterial3D::get_material_for_2d(bool p_shaded, Transparency p_transparency, bool p_double_sided, bool p_billboard, bool p_billboard_y, bool p_msdf, bool p_no_depth, bool p_fixed_size, TextureFilter p_filter, AlphaAntiAliasing p_alpha_antialiasing_mode, RID *r_shader_rid) {
 	uint64_t key = 0;
 	key |= ((int8_t)p_shaded & 0x01) << 0;
@@ -3499,6 +3506,8 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(DISTANCE_FADE_PIXEL_ALPHA);
 	BIND_ENUM_CONSTANT(DISTANCE_FADE_PIXEL_DITHER);
 	BIND_ENUM_CONSTANT(DISTANCE_FADE_OBJECT_DITHER);
+
+	ClassDB::bind_static_method("BaseMaterial3D", D_METHOD("get_material_rid_for_2d", "shaded", "transparency", "double_sided", "billboard", "billboard_y", "msdf", "no_depth", "fixed_size", "filter", "alpha_antialiasing_mode"), &BaseMaterial3D::get_material_rid_for_2d);
 }
 
 BaseMaterial3D::BaseMaterial3D(bool p_orm) :
