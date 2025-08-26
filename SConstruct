@@ -259,7 +259,7 @@ opts.Add("cache_limit", "Max size (in GiB) for the SCons cache. 0 means no limit
 opts.Add(
     BoolVariable(
         "redirect_build_objects",
-        "Enable redirecting built objects/libraries to `bin/obj/` to declutter the repository.",
+        "Enable redirecting built objects/libraries to `build_obj/` to declutter the repository.",
         True,
     )
 )

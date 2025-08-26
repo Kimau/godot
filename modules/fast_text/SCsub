@@ -1,8 +1,11 @@
-# SCsub
+#!/usr/bin/env python
+from misc.utility.scons_hints import *
 
-Import('env')
+Import("env")
+Import("env_modules")
 
-env.add_source_files(env.modules_sources, "*.cpp") # Add all cpp files to the build
+env_fasttext = env_modules.Clone()
+env_fasttext.add_source_files(env.modules_sources, "*.cpp") # Add all cpp files to the build
 
-if env.editor_build:
-    env.add_source_files(env.modules_sources, "editor/*.cpp") # Add all cpp files to the build
+if env_fasttext.editor_build:
+    env_fasttext.add_source_files(env_fasttext.modules_sources, "editor/*.cpp") # Add all cpp files to the build
