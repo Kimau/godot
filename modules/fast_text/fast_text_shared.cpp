@@ -66,13 +66,6 @@ void FastTextSharedResource::_bind_methods() {
 }
 
 
-struct FastTextSharedResource::GlyphParams {
-	const Glyph &p_glyph;
-	Vector2 &r_offset;
-	int p_priority;
-	float z_shift;
-};
-
 RID create_font_mat(const FastTextSharedResource::MatParams &params, const Ref<ShaderMaterial> &p_material_override) {
     RID font_mat;
 
@@ -177,80 +170,6 @@ RID FastTextSharedResource::get_create_mat(RID font_id, uint32_t glyph_index, Ve
 	return mat;
 }
 
-void FastTextSharedResource::_generate_glyph_surfaces(GlyphParams *p, Vector<SurfaceData> &surfs) {
-	float stepX = p->p_glyph.advance * pixel_size * p->p_glyph.repeat;
-	if (p->p_glyph.index == 0) {
-		p->r_offset.x += stepX; // Non visual character, skip.
-		return;
-	}
-
-	Vector2 gl_of;
-	Vector2 gl_sz;
-	Rect2 gl_uv;
-	Size2 texs;
-	RID tex;
-	Vector2i fsize;
-
-	if (p->p_glyph.font_rid.is_valid()) {
-		fsize = Vector2i(p->p_glyph.font_size, 0);
-
-		tex = TS->font_get_glyph_texture_rid(p->p_glyph.font_rid, fsize, p->p_glyph.index);
-		if (tex.is_valid()) {
-			gl_of = (TS->font_get_glyph_offset(p->p_glyph.font_rid, fsize, p->p_glyph.index) + Vector2(p->p_glyph.x_off, p->p_glyph.y_off)) * pixel_size;
-			gl_sz = TS->font_get_glyph_size(p->p_glyph.font_rid, fsize, p->p_glyph.index) * pixel_size;
-			gl_uv = TS->font_get_glyph_uv_rect(p->p_glyph.font_rid, fsize, p->p_glyph.index);
-			texs = TS->font_get_glyph_texture_size(p->p_glyph.font_rid, fsize, p->p_glyph.index);
-		}
-	} else {
-		gl_sz = TS->get_hex_code_box_size(p->p_glyph.font_size, p->p_glyph.index) * pixel_size;
-		gl_of = Vector2(0, -gl_sz.y);
-	}
-
-	if (gl_uv.size.x <= 2 || gl_uv.size.y <= 2) {
-		p->r_offset.x += stepX; // Nothing to draw.
-		return;
-	}
-
-	for (int j = 0; j < p->p_glyph.repeat; j++) {
-		SurfaceData s;
-
-		bool msdf = TS->font_is_multichannel_signed_distance_field(p->p_glyph.font_rid);
-
-		s.material = get_create_mat(p->p_glyph.font_rid, p->p_glyph.index, fsize, msdf, alpha_cut, font_draw_flags);
-
-		s.mesh_vertices.resize((s.offset + 1) * 4);
-		s.mesh_uvs.resize((s.offset + 1) * 4);
-
-		s.mesh_vertices.write[(s.offset * 4) + 3] = Vector3(p->r_offset.x + gl_of.x, p->r_offset.y - gl_of.y - gl_sz.y, p->z_shift);
-		s.mesh_vertices.write[(s.offset * 4) + 2] = Vector3(p->r_offset.x + gl_of.x + gl_sz.x, p->r_offset.y - gl_of.y - gl_sz.y, p->z_shift);
-		s.mesh_vertices.write[(s.offset * 4) + 1] = Vector3(p->r_offset.x + gl_of.x + gl_sz.x, p->r_offset.y - gl_of.y, p->z_shift);
-		s.mesh_vertices.write[(s.offset * 4) + 0] = Vector3(p->r_offset.x + gl_of.x, p->r_offset.y - gl_of.y, p->z_shift);
-
-		if (tex.is_valid()) {
-			gl_uv.position += Vector2i(1,1); // to offset the border
-			gl_uv.size -= Vector2i(2,2);
-
-			s.mesh_uvs.write[(s.offset * 4) + 3] = Vector2(gl_uv.position.x / texs.x, (gl_uv.position.y + gl_uv.size.y) / texs.y);
-			s.mesh_uvs.write[(s.offset * 4) + 2] = Vector2((gl_uv.position.x + gl_uv.size.x) / texs.x, (gl_uv.position.y + gl_uv.size.y) / texs.y);
-			s.mesh_uvs.write[(s.offset * 4) + 1] = Vector2((gl_uv.position.x + gl_uv.size.x) / texs.x, gl_uv.position.y / texs.y);
-			s.mesh_uvs.write[(s.offset * 4) + 0] = Vector2(gl_uv.position.x / texs.x, gl_uv.position.y / texs.y);
-		}
-
-		s.indices.resize((s.offset + 1) * 6);
-		s.indices.write[(s.offset * 6) + 0] = (s.offset * 4) + 0;
-		s.indices.write[(s.offset * 6) + 1] = (s.offset * 4) + 1;
-		s.indices.write[(s.offset * 6) + 2] = (s.offset * 4) + 2;
-		s.indices.write[(s.offset * 6) + 3] = (s.offset * 4) + 0;
-		s.indices.write[(s.offset * 6) + 4] = (s.offset * 4) + 2;
-		s.indices.write[(s.offset * 6) + 5] = (s.offset * 4) + 3;
-
-		s.offset++;
-		p->r_offset.x += p->p_glyph.advance * pixel_size;
-
-		surfs.push_back(s);
-	}
-}
-
 
 void FastTextSharedResource::_notify_change() {
 	for (FastText *text : users)
@@ -274,10 +193,6 @@ bool FastTextSharedResource::update_mesh(FastText *text) {
 
 	if (!users.has(text))
 		users.push_back(text);
-
-	// Clear AABB
-	AABB newAABB;
-	Vector<SurfaceData> surfs;
 
 	DEV_ASSERT(font.is_valid()); // Ensure font is valid
 	if (!font.is_valid())
@@ -376,65 +291,162 @@ bool FastTextSharedResource::update_mesh(FastText *text) {
 		} break;
 	}
 
-	Vector2 offset = Vector2(0, vbegin + text->lbl_offset.y * pixel_size);
-	for (int i = 0; i < text->lines_rid.size(); i++) {
-		const Glyph *glyphs = TS->shaped_text_get_glyphs(text->lines_rid[i]);
-		int gl_size = TS->shaped_text_get_glyph_count(text->lines_rid[i]);
-		float line_width = TS->shaped_text_get_width(text->lines_rid[i]) * pixel_size;
+	AABB newAABB;
+	Vector2 cursor = Vector2(0, vbegin + text->lbl_offset.y * pixel_size);
+
+	float z_shift = 0.0f;
+
+	struct SurfaceData {
+		PackedVector3Array mesh_vertices;
+		PackedVector2Array mesh_uvs;
+		PackedInt32Array indices;
+		int offset = 0;
+		RID material;
+		RID texture;
+	};
+	LocalVector<SurfaceData*> surfs;
+
+	// for EACH LINE
+	for (int line_idx = 0; line_idx < text->lines_rid.size(); line_idx++) {
+		const Glyph *glyphs = TS->shaped_text_get_glyphs(text->lines_rid[line_idx]);
+		int gl_size = TS->shaped_text_get_glyph_count(text->lines_rid[line_idx]);
+		float line_width = TS->shaped_text_get_width(text->lines_rid[line_idx]) * pixel_size;
 
 		switch (text->horizontal_alignment) {
 			case HORIZONTAL_ALIGNMENT_LEFT:
-				offset.x = 0.0;
-				break;
+				cursor.x = 0.0;
+			break;
 			case HORIZONTAL_ALIGNMENT_FILL:
 			case HORIZONTAL_ALIGNMENT_CENTER: {
-				offset.x = -line_width / 2.0;
+				cursor.x = -line_width / 2.0;
 			} break;
 			case HORIZONTAL_ALIGNMENT_RIGHT: {
-				offset.x = -line_width;
+				cursor.x = -line_width;
 			} break;
 		}
-		offset.x += text->lbl_offset.x * pixel_size;
+		cursor.x += text->lbl_offset.x * pixel_size;
 		if (newAABB == AABB()) {
-			newAABB.position = Vector3(offset.x, offset.y, 0);
-			newAABB.expand_to(Vector3(offset.x + line_width, offset.y - (TS->shaped_text_get_size(text->lines_rid[i]).y + text->line_spacing) * pixel_size, 0));
+			newAABB.position = Vector3(cursor.x, cursor.y, 0);
+			newAABB.expand_to(Vector3(cursor.x + line_width, cursor.y - (TS->shaped_text_get_size(text->lines_rid[line_idx]).y + text->line_spacing) * pixel_size, 0));
 		} else {
-			newAABB.expand_to(Vector3(offset.x, offset.y, 0));
-			newAABB.expand_to(Vector3(offset.x + line_width, offset.y - (TS->shaped_text_get_size(text->lines_rid[i]).y + text->line_spacing) * pixel_size, 0));
+			newAABB.expand_to(Vector3(cursor.x, cursor.y, 0));
+			newAABB.expand_to(Vector3(cursor.x + line_width, cursor.y - (TS->shaped_text_get_size(text->lines_rid[line_idx]).y + text->line_spacing) * pixel_size, 0));
 		}
 
-		offset.y -= TS->shaped_text_get_ascent(text->lines_rid[i]) * pixel_size;
+		cursor.y -= TS->shaped_text_get_ascent(text->lines_rid[line_idx]) * pixel_size;
 
-		// Main text surfaces.
-		for (int j = 0; j < gl_size; j++) {
-			GlyphParams gp = {
-				glyphs[j],
-				offset,
-				0, // render priority
-				0.0f
-			};
+		// for EACH GLYPH in line
+		for (int glyph_idx = 0; glyph_idx < gl_size; glyph_idx++) {
+			const Glyph& g = glyphs[glyph_idx];
+			float step_x = g.advance * pixel_size * g.repeat;
 
-			_generate_glyph_surfaces(&gp, surfs);
-		}
-		offset.y -= (TS->shaped_text_get_descent(text->lines_rid[i]) + text->line_spacing) * pixel_size;
-	}
+			// Non Printable
+			if ((g.index == 0) || (!g.font_rid.is_valid())) {
+				cursor.x += step_x;
+				continue;
+			}
+
+			Vector2i fsize = Vector2i(g.font_size, 0);
+			RID texture_rid = TS->font_get_glyph_texture_rid(g.font_rid, fsize, g.index);
+
+			// find index of surface
+			if (!texture_rid.is_valid()) {
+				cursor.x += step_x;
+				continue;
+			}
+
+
+			Vector2 gl_of = (TS->font_get_glyph_offset(g.font_rid, fsize, g.index) + Vector2(g.x_off, g.y_off)) * pixel_size;
+			Vector2 gl_sz = TS->font_get_glyph_size(g.font_rid, fsize, g.index) * pixel_size;
+			Rect2 gl_uv = TS->font_get_glyph_uv_rect(g.font_rid, fsize, g.index);
+			Size2 tex_size = TS->font_get_glyph_texture_size(g.font_rid, fsize, g.index);
+
+			// too small to draw
+			if (gl_uv.size.x <= 2 || gl_uv.size.y <= 2) {
+				cursor.x += step_x;
+				continue;
+			}
+
+			// Find surface if one exist
+			int i=0;
+			RID mat_id = get_create_mat(g.font_rid, g.index, fsize, TS->font_is_multichannel_signed_distance_field(g.font_rid), alpha_cut, font_draw_flags);
+
+			SurfaceData* s = nullptr;
+			while (i<surfs.size()) {
+				// Why check both instancing bug - need to double check later
+				if ((surfs[i]->texture == texture_rid) && (surfs[i]->material == mat_id)) {
+					s = surfs[i];
+					break;
+				}
+				i++;
+			}
+
+			if (s == nullptr) {
+				s = new SurfaceData();
+				s->texture = texture_rid;
+				s->material = mat_id;
+				surfs.push_back(s);
+			}
+
+			// for EACH REPEAT
+			for (int j = 0; j < g.repeat; j++) {
+
+				int sidx = s->offset;
+				s->offset += 1;
+
+				s->mesh_vertices.append_array({
+					Vector3(cursor.x + gl_of.x, cursor.y - gl_of.y, z_shift),
+					Vector3(cursor.x + gl_of.x + gl_sz.x, cursor.y - gl_of.y, z_shift),
+					Vector3(cursor.x + gl_of.x + gl_sz.x, cursor.y - gl_of.y - gl_sz.y, z_shift),
+					Vector3(cursor.x + gl_of.x, cursor.y - gl_of.y - gl_sz.y, z_shift)
+				});
+
+				// to offset the border
+				gl_uv.position += Vector2i(1,1);
+				gl_uv.size -= Vector2i(2,2);
+
+				s->mesh_uvs.append_array({
+				Vector2(gl_uv.position.x / tex_size.x, gl_uv.position.y / tex_size.y),
+				Vector2((gl_uv.position.x + gl_uv.size.x) / tex_size.x, gl_uv.position.y / tex_size.y),
+				Vector2((gl_uv.position.x + gl_uv.size.x) / tex_size.x, (gl_uv.position.y + gl_uv.size.y) / tex_size.y),
+				Vector2(gl_uv.position.x / tex_size.x, (gl_uv.position.y + gl_uv.size.y) / tex_size.y)
+					});
+
+				s->indices.append_array({
+				(sidx * 4) + 0,
+				(sidx * 4) + 1,
+				(sidx * 4) + 2,
+				(sidx * 4) + 0,
+				(sidx * 4) + 2,
+				(sidx * 4) + 3
+				});
+
+				cursor.x += g.advance * pixel_size;
+			} // end repeat
+		} // end glyph
+
+		cursor.y -= (TS->shaped_text_get_descent(text->lines_rid[line_idx]) + text->line_spacing) * pixel_size;
+	} // end line
 
 	// HACK :: THERE IS KNOWN BUG ON ANDROID WHERE THE INSTANCE UNIFORMS ARE NUKED
-	// Future improvement, this results in a ton of draw calls a bunch of these surfaces should be merged to reduce the draw call load
+	// Can't recall what this about, you fucking idiot Claire write better comments
+	// Leaving here for future facepalm
 
 	// Clear the mesh
 	RS::get_singleton()->mesh_clear(text->mesh);
 
-	for (const SurfaceData &s : surfs) {
+	for (const SurfaceData* s : surfs) {
 		Array mesh_array;
 		mesh_array.resize(RS::ARRAY_MAX);
-		mesh_array[RS::ARRAY_VERTEX] = s.mesh_vertices;
+		mesh_array[RS::ARRAY_VERTEX] = s->mesh_vertices;
 
 		// Use instance shader parameter for colors instead of vertex colors
+		// Why waste all that buffer space - really should nuke the normal/tangent data as well not like
+		// we are rotating normals per glyph. Leaving here for standard mat support for now
 
 		// Add standard normals
 		PackedVector3Array mesh_normals;
-		mesh_normals.resize(s.mesh_vertices.size());
+		mesh_normals.resize(s->mesh_vertices.size());
 		for (int i = 0; i < mesh_normals.size(); i++) {
             mesh_normals.write[i] = Vector3(0.0, 0.0, 1.0);
         }
@@ -442,8 +454,8 @@ bool FastTextSharedResource::update_mesh(FastText *text) {
 
         // Add standard tangents
         PackedFloat32Array mesh_tangents;
-        mesh_tangents.resize(s.mesh_vertices.size() * 4);
-        for (int i = 0; i < s.mesh_vertices.size(); i++) {
+        mesh_tangents.resize(s->mesh_vertices.size() * 4);
+        for (int i = 0; i < s->mesh_vertices.size(); i++) {
             mesh_tangents.write[i * 4 + 0] = 1.0;
             mesh_tangents.write[i * 4 + 1] = 0.0;
             mesh_tangents.write[i * 4 + 2] = 0.0;
@@ -451,13 +463,13 @@ bool FastTextSharedResource::update_mesh(FastText *text) {
         }
         mesh_array[RS::ARRAY_TANGENT] = mesh_tangents;
 
-		mesh_array[RS::ARRAY_TEX_UV] = s.mesh_uvs;
-		mesh_array[RS::ARRAY_INDEX] = s.indices;
+		mesh_array[RS::ARRAY_TEX_UV] = s->mesh_uvs;
+		mesh_array[RS::ARRAY_INDEX] = s->indices;
 
 		RS::SurfaceData sd;
 		RS::get_singleton()->mesh_create_surface_data_from_arrays(&sd, RS::PRIMITIVE_TRIANGLES, mesh_array);
 
-		sd.material = s.material;
+		sd.material = s->material;
 
 		RS::get_singleton()->mesh_add_surface(text->mesh, sd);
 	}

@@ -12,7 +12,7 @@ class FastText;
 
 class FastTextSharedResource : public Resource {
 	GDCLASS(FastTextSharedResource, Resource);
-	
+
 public:
 	enum DrawFlags {
 		FLAG_SHADED = 1 << 0,         // Enable shading
@@ -56,8 +56,6 @@ public:
 	};
 
 private:
-	struct GlyphParams;
-	
 	struct SurfaceData {
 		PackedVector3Array mesh_vertices;
 		PackedVector2Array mesh_uvs;
@@ -83,7 +81,6 @@ private:
 	RID get_create_mat(RID font_id, uint32_t glyph_index, Vector2i fsize, bool msdf,
 			AlphaCutMode flag_alpha, int32_t flag_draw);
 
-	void _generate_glyph_surfaces(GlyphParams *p, Vector<SurfaceData> &surfs);
 	void _notify_change();
 
 protected:
