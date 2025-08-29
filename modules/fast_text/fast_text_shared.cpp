@@ -441,27 +441,8 @@ bool FastTextSharedResource::update_mesh(FastText *text) {
 		mesh_array[RS::ARRAY_VERTEX] = s->mesh_vertices;
 
 		// Use instance shader parameter for colors instead of vertex colors
-		// Why waste all that buffer space - really should nuke the normal/tangent data as well not like
-		// we are rotating normals per glyph. Leaving here for standard mat support for now
-
-		// Add standard normals
-		PackedVector3Array mesh_normals;
-		mesh_normals.resize(s->mesh_vertices.size());
-		for (int i = 0; i < mesh_normals.size(); i++) {
-            mesh_normals.write[i] = Vector3(0.0, 0.0, 1.0);
-        }
-        mesh_array[RS::ARRAY_NORMAL] = mesh_normals;
-
-        // Add standard tangents
-        PackedFloat32Array mesh_tangents;
-        mesh_tangents.resize(s->mesh_vertices.size() * 4);
-        for (int i = 0; i < s->mesh_vertices.size(); i++) {
-            mesh_tangents.write[i * 4 + 0] = 1.0;
-            mesh_tangents.write[i * 4 + 1] = 0.0;
-            mesh_tangents.write[i * 4 + 2] = 0.0;
-            mesh_tangents.write[i * 4 + 3] = 1.0;
-        }
-        mesh_array[RS::ARRAY_TANGENT] = mesh_tangents;
+		// Why waste all that buffer space
+		// Note this requires using a custom shader
 
 		mesh_array[RS::ARRAY_TEX_UV] = s->mesh_uvs;
 		mesh_array[RS::ARRAY_INDEX] = s->indices;
