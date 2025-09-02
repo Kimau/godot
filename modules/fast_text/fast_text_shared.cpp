@@ -78,8 +78,11 @@ RID create_font_mat(const FastTextSharedResource::MatParams &params, const Ref<S
 
         // Set MSDF parameters if needed
         if (params.msdf) {
-            RS::get_singleton()->material_set_param(font_mat, "msdf_pixel_range", TS->font_get_msdf_pixel_range(params.font_id));
-            RS::get_singleton()->material_set_param(font_mat, "msdf_outline_size", 0.0);
+        	Vector2 tex_size = TS->font_get_glyph_texture_size(params.font_id, params.fsize, params.first_glyph_index);
+
+            RS::get_singleton()->material_set_param(font_mat, "px_range", TS->font_get_msdf_pixel_range(params.font_id));
+        	RS::get_singleton()->material_set_param(font_mat, "msdf_size", tex_size);
+
         }
 
         return font_mat;
@@ -156,7 +159,7 @@ RID FastTextSharedResource::get_create_mat(RID font_id, uint32_t glyph_index, Ve
 	RID font_tex = TS->font_get_glyph_texture_rid(font_id, fsize, glyph_index);
 
 	MatParams params = {
-		font_id, font_tex, fsize, msdf, flag_alpha, flag_draw
+		font_id, font_tex, glyph_index, fsize, msdf, flag_alpha, flag_draw
 	};
 
 	// Always check cache first, regardless of material override
@@ -406,19 +409,19 @@ bool FastTextSharedResource::update_mesh(FastText *text) {
 				gl_uv.size -= Vector2i(2,2);
 
 				s->mesh_uvs.append_array({
-				Vector2(gl_uv.position.x / tex_size.x, gl_uv.position.y / tex_size.y),
-				Vector2((gl_uv.position.x + gl_uv.size.x) / tex_size.x, gl_uv.position.y / tex_size.y),
-				Vector2((gl_uv.position.x + gl_uv.size.x) / tex_size.x, (gl_uv.position.y + gl_uv.size.y) / tex_size.y),
-				Vector2(gl_uv.position.x / tex_size.x, (gl_uv.position.y + gl_uv.size.y) / tex_size.y)
-					});
+					Vector2(gl_uv.position.x / tex_size.x, gl_uv.position.y / tex_size.y),
+					Vector2((gl_uv.position.x + gl_uv.size.x) / tex_size.x, gl_uv.position.y / tex_size.y),
+					Vector2((gl_uv.position.x + gl_uv.size.x) / tex_size.x, (gl_uv.position.y + gl_uv.size.y) / tex_size.y),
+					Vector2(gl_uv.position.x / tex_size.x, (gl_uv.position.y + gl_uv.size.y) / tex_size.y)
+				});
 
 				s->indices.append_array({
-				(sidx * 4) + 0,
-				(sidx * 4) + 1,
-				(sidx * 4) + 2,
-				(sidx * 4) + 0,
-				(sidx * 4) + 2,
-				(sidx * 4) + 3
+					(sidx * 4) + 0,
+					(sidx * 4) + 1,
+					(sidx * 4) + 2,
+					(sidx * 4) + 0,
+					(sidx * 4) + 2,
+					(sidx * 4) + 3
 				});
 
 				cursor.x += g.advance * pixel_size;

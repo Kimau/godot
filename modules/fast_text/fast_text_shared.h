@@ -34,12 +34,14 @@ public:
 	struct MatParams {
 		RID font_id;                  // Font resource ID
 		RID tex_id;                   // Texture resource ID
+		uint32_t first_glyph_index;   // The Glyph which first requested this material - used for texture size and some other bits
 		Vector2i fsize;               // Font size
 		bool msdf;                    // Is multi-channel signed distance field
 		AlphaCutMode flag_alpha;      // Alpha cut mode
 		int32_t flag_draw;            // Drawing flags
 
 		bool operator==(const MatParams &other) const {
+			// ignore first glpyh
 			return font_id == other.font_id &&
 					tex_id == other.tex_id &&
 					fsize == other.fsize &&
