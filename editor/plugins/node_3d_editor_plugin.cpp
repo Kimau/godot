@@ -3010,6 +3010,8 @@ void Node3DEditorViewport::_notification(int p_what) {
 					continue;
 				}
 				AABB new_aabb = _calculate_spatial_bounds(sp);
+				if (!new_aabb.is_finite())
+					continue;
 
 				exist = true;
 				if (se->last_xform == t && se->aabb == new_aabb && !se->last_xform_dirty) {

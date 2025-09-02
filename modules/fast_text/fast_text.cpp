@@ -147,9 +147,11 @@ void FastText::_im_update() {
 	(void)updated;
 
 	update_gizmos();
-	
+
 	pending_update = false;
-	emit_signal(SNAME("text_mesh_update"));
+	if (is_inside_tree()) {
+		emit_signal(SNAME("text_mesh_update"));
+	}
 }
 
 void FastText::_queue_update() {
