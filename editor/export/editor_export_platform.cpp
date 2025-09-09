@@ -409,6 +409,21 @@ String EditorExportPlatform::find_export_template(const String &template_file_na
 	String current_version = GODOT_VERSION_FULL_CONFIG;
 	String template_path = EditorPaths::get_singleton()->get_export_templates_dir().path_join(current_version).path_join(template_file_name);
 
+	//---- FLAMPEN: Use Project Settings
+	ProjectSettings *ps = ProjectSettings::get_singleton();
+
+	// STRIP - "windows_release_x86_64.exe" becomes "template_paths/windows_release_x86_64".
+	String template_name_no_ext = template_file_name.get_basename();
+	String setting_key = "export/template_paths/" + template_name_no_ext;
+
+	if (ps->has_setting(setting_key)) {
+		template_path = ps->get_setting(setting_key, template_path);
+	} else {
+		ps->set_setting(setting_key, template_path);
+		ps->save();
+	}
+	//---- FLAMPEN
+
 	if (FileAccess::exists(template_path)) {
 		return template_path;
 	}
