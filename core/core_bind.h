@@ -313,6 +313,12 @@ public:
 	void add_logger(const Ref<Logger> &p_logger);
 	void remove_logger(const Ref<Logger> &p_logger);
 
+	enum PreferredTextureFormat {
+		PREFERRED_TEXTURE_FORMAT_S3TC_BPTC,
+		PREFERRED_TEXTURE_FORMAT_ETC2_ASTC
+	};
+	OS::PreferredTextureFormat get_preferred_texture_format();
+
 	static OS *get_singleton() { return singleton; }
 
 	OS();
@@ -703,6 +709,7 @@ VARIANT_BITFIELD_CAST(CoreBind::ResourceSaver::SaverFlags);
 VARIANT_ENUM_CAST(CoreBind::OS::RenderingDriver);
 VARIANT_ENUM_CAST(CoreBind::OS::SystemDir);
 VARIANT_ENUM_CAST(CoreBind::OS::StdHandleType);
+VARIANT_ENUM_CAST(CoreBind::OS::PreferredTextureFormat);
 
 VARIANT_ENUM_CAST(CoreBind::Geometry2D::PolyBooleanOperation);
 VARIANT_ENUM_CAST(CoreBind::Geometry2D::PolyJoinType);

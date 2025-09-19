@@ -718,6 +718,13 @@ void OS::remove_logger(const Ref<Logger> &p_logger) {
 	logger_bind->loggers.erase(p_logger);
 }
 
+
+OS::PreferredTextureFormat OS::get_preferred_texture_format() {
+	// should prob move the enum but fuck it don't want a bigger diff
+	::OS::PreferredTextureFormat fmt = ::OS::get_singleton()->get_preferred_texture_format();
+	return static_cast<OS::PreferredTextureFormat>(fmt);
+}
+
 void OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_entropy", "size"), &OS::get_entropy);
 	ClassDB::bind_method(D_METHOD("get_system_ca_certificates"), &OS::get_system_ca_certificates);
@@ -825,6 +832,8 @@ void OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_logger", "logger"), &OS::add_logger);
 	ClassDB::bind_method(D_METHOD("remove_logger", "logger"), &OS::remove_logger);
 
+	ClassDB::bind_method(D_METHOD("get_preferred_texture_format"), &OS::get_preferred_texture_format);
+
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "low_processor_usage_mode"), "set_low_processor_usage_mode", "is_in_low_processor_usage_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "low_processor_usage_mode_sleep_usec"), "set_low_processor_usage_mode_sleep_usec", "get_low_processor_usage_mode_sleep_usec");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "delta_smoothing"), "set_delta_smoothing", "is_delta_smoothing_enabled");
@@ -853,6 +862,9 @@ void OS::_bind_methods() {
 	BIND_ENUM_CONSTANT(STD_HANDLE_FILE);
 	BIND_ENUM_CONSTANT(STD_HANDLE_PIPE);
 	BIND_ENUM_CONSTANT(STD_HANDLE_UNKNOWN);
+
+	BIND_ENUM_CONSTANT(PREFERRED_TEXTURE_FORMAT_S3TC_BPTC);
+	BIND_ENUM_CONSTANT(PREFERRED_TEXTURE_FORMAT_ETC2_ASTC);
 }
 
 OS::OS() {
