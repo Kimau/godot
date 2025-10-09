@@ -297,12 +297,15 @@ def configure_msvc(env: "SConsEnvironment"):
     # TODO: Re-evaluate the need for this / streamline with common config.
     if env["target"] == "template_release":
         env.Append(LINKFLAGS=["/ENTRY:mainCRTStartup"])
-
+    
     if env["windows_subsystem"] == "gui":
         env.Append(LINKFLAGS=["/SUBSYSTEM:WINDOWS"])
+        if "raddbg" in env["LINK"]:
+            env.Append(LINKFLAGS=["/RAD_DEBUG","/RAD_LINK_VER:1.7","/RAD_OS_VER:6.1"])
     else:
         env.Append(LINKFLAGS=["/SUBSYSTEM:CONSOLE"])
         env.AppendUnique(CPPDEFINES=["WINDOWS_SUBSYSTEM_CONSOLE"])
+        env.Append(LINKFLAGS=["/RAD_DEBUG","/RAD_LINK_VER:1.7"])
 
     ## Compile/link flags
 

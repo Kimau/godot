@@ -319,6 +319,9 @@ opts.Add("cpp_compiler_launcher", "C++ compiler launcher (e.g. `ccache`)")
 # in following code (especially platform and custom_modules).
 opts.Update(env)
 
+custom_linker = env.get("LINK")
+print(f"Using custom linker: {custom_linker}")
+
 # Print out all variables set by the custom files
 print(f"Variables set by custom files: {profile}")
 #for var, value in env.items():
@@ -1157,6 +1160,9 @@ if "c_compiler_launcher" in env:
 if "cpp_compiler_launcher" in env:
     env["CXX"] = " ".join([env["cpp_compiler_launcher"], env["CXX"]])
 
+if custom_linker:
+    env['LINK'] = custom_linker
+    
 # Build subdirs, the build order is dependent on link order.
 Export("env")
 
