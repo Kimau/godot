@@ -11,9 +11,10 @@
 		<link title="Setting up XR">$DOCS_URL/tutorials/xr/setting_up_xr.html</link>
 	</tutorials>
 	<methods>
-	<method name="capture_frame">
+		<method name="capture_frame">
 			<return type="void" />
 			<param index="0" name="rd_texture" type="RID" />
+			<param index="1" name="convert_to_srgb" type="bool" />
 			<description>
 				Requests a single-frame capture of the left eye from the XR swapchain. The provided [param rd_texture] must be a valid [RenderingDevice] texture created by the caller with [constant RenderingDevice.TEXTURE_USAGE_COLOR_ATTACHMENT_BIT] and [constant RenderingDevice.TEXTURE_USAGE_CAN_COPY_FROM_BIT], and must match the dimensions returned by [method XRInterface.get_render_target_size].
 				The capture is performed via an internal blit during XRInterface post_draw_viewport, before the swapchain image is released back to the OpenXR runtime. The result is delivered asynchronously — the [signal frame_captured] signal is emitted on the next XRInterface process tick once the blit is complete.
