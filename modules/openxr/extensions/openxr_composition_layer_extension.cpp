@@ -211,9 +211,10 @@ Ref<JavaObject> OpenXRCompositionLayerExtension::composition_layer_get_android_s
 }
 
 void OpenXRCompositionLayerExtension::_composition_layer_free_rt(RID p_layer) {
+	MutexLock lock(composition_layer_mutex);
+
 	_composition_layer_unregister_rt(p_layer);
 
-	MutexLock lock(composition_layer_mutex);
 	CompositionLayer *layer = composition_layer_owner.get_or_null(p_layer);
 	if (layer) {
 		for (OpenXRExtensionWrapper *extension : OpenXRAPI::get_registered_extension_wrappers()) {
@@ -225,16 +226,25 @@ void OpenXRCompositionLayerExtension::_composition_layer_free_rt(RID p_layer) {
 	composition_layer_owner.free(p_layer);
 }
 
+// registered_composition_layers holds raw pointers into composition_layer_owner's storage, and
+// _composition_layer_free_rt() unregisters a layer only once before freeing it. A duplicate entry
+// would therefore outlive the CompositionLayer and dangle, so register/unregister must be
+// idempotent: at most one entry per layer, and every entry gone on the way out.
 void OpenXRCompositionLayerExtension::_composition_layer_register_rt(RID p_layer) {
 	CompositionLayer *layer = composition_layer_owner.get_or_null(p_layer);
 	ERR_FAIL_NULL(layer);
-	registered_composition_layers.push_back(layer);
+	if (!registered_composition_layers.has(layer)) {
+		registered_composition_layers.push_back(layer);
+	}
 }
 
 void OpenXRCompositionLayerExtension::_composition_layer_unregister_rt(RID p_layer) {
 	CompositionLayer *layer = composition_layer_owner.get_or_null(p_layer);
 	ERR_FAIL_NULL(layer);
-	registered_composition_layers.erase(layer);
+
+	// erase() removes the first match only -- drain, in case an older duplicate is still around.
+	while (registered_composition_layers.erase(layer)) {
+	}
 }
 
 bool OpenXRCompositionLayerExtension::is_available(XrStructureType p_which) {
