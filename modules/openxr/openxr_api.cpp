@@ -2730,7 +2730,14 @@ bool OpenXRAPI::process() {
 
 	XrResult result = xrWaitFrame(session, &frame_wait_info, &frame_state);
 	if (XR_FAILED(result)) {
-		print_line("OpenXR: xrWaitFrame() was not successful [", get_error_string(result), "]");
+		static XrResult last_err = XR_RESULT_MAX_ENUM;
+		if (last_err == result) {
+			print_verbose(vformat("OpenXR: failed to WAIT frame AGAIN! [%s]", get_error_string(result)));
+		} else {
+			last_err = result;
+			print_error(vformat("OpenXR: failed to WAIT frame [%s]", get_error_string(result)));
+			print_line("OpenXR: repeated errors of same type will be printed VERBOSE");
+		}
 
 		// reset just in case
 		frame_state.predictedDisplayTime = 0;
@@ -2806,7 +2813,14 @@ void OpenXRAPI::pre_render() {
 	};
 	XrResult result = xrBeginFrame(session, &frame_begin_info);
 	if (XR_FAILED(result)) {
-		print_line("OpenXR: failed to begin frame [", get_error_string(result), "]");
+		static XrResult last_err = XR_RESULT_MAX_ENUM;
+		if (last_err == result) {
+			print_verbose(vformat("OpenXR: failed to BEGIN frame AGAIN! [%s]", get_error_string(result)));
+		} else {
+			last_err = result;
+			print_error(vformat("OpenXR: failed to BEGIN frame [%s]", get_error_string(result)));
+			print_line("OpenXR: repeated errors of same type will be printed VERBOSE");
+		}
 		return;
 	}
 
@@ -3038,7 +3052,14 @@ void OpenXRAPI::end_frame() {
 		};
 		result = xrEndFrame(session, &frame_end_info);
 		if (XR_FAILED(result)) {
-			print_line("OpenXR: rendering skipped and failed to end frame! [", get_error_string(result), "]");
+			static XrResult last_err = XR_RESULT_MAX_ENUM;
+			if (last_err == result) {
+				print_verbose(vformat("OpenXR: rendering skipped and failed to END frame AGAIN! [%s]", get_error_string(result)));
+			} else {
+				last_err = result;
+				print_error(vformat("OpenXR: rendering skipped and failed to END frame [%s]", get_error_string(result)));
+				print_line("OpenXR: repeated errors of same type will be printed VERBOSE");
+			}
 			return;
 		}
 
@@ -3146,7 +3167,14 @@ void OpenXRAPI::end_frame() {
 	};
 	result = xrEndFrame(session, &frame_end_info);
 	if (XR_FAILED(result)) {
-		print_line("OpenXR: failed to end frame! [", get_error_string(result), "]");
+		static XrResult last_err = XR_RESULT_MAX_ENUM;
+		if (last_err == result) {
+			print_verbose(vformat("OpenXR: failed to END frame AGAIN! [%s]", get_error_string(result)));
+		} else {
+			last_err = result;
+			print_error(vformat("OpenXR: failed to END frame [%s]", get_error_string(result)));
+			print_line("OpenXR: repeated errors of same type will be printed VERBOSE");
+		}
 		return;
 	}
 
