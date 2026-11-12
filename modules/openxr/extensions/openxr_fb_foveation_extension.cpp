@@ -142,7 +142,9 @@ bool OpenXRFBFoveationExtension::is_enabled() const {
 
 void *OpenXRFBFoveationExtension::set_system_properties_and_get_next_pointer(void *p_next_pointer) {
 #ifdef XR_USE_GRAPHICS_API_VULKAN
-	if (rendering_driver == "vulkan") {
+	// Only chain this struct if the extension was actually requested and enabled;
+	// some runtimes (e.g. Pico) fault on an unrequested Meta-specific struct type.
+	if (rendering_driver == "vulkan" && meta_foveation_eye_tracked_ext) {
 		meta_foveation_eye_tracked_properties.next = p_next_pointer;
 		return &meta_foveation_eye_tracked_properties;
 	}
