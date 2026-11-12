@@ -726,8 +726,27 @@ void CanvasItem::_get_property_list(List<PropertyInfo> *p_list) const {
 #ifdef TOOLS_ENABLED
 		instance_parameter_cache.insert("instance_shader_parameters/" + pi.name, pi.name);
 #endif
-		pi.name = "instance_shader_parameters/" + pi.name;
-		p_list->push_back(pi);
+		PropertyInfo pi_out = pi;
+		pi_out.name = "instance_shader_parameters/" + pi.name;
+		p_list->push_back(pi_out);
+	}
+
+	// Params with no live shader description still hold an authored value; emit
+	// them storage-only so a save cannot drop them.
+	for (const KeyValue<StringName, Variant> &E : instance_shader_parameters) {
+		bool exposed = false;
+		for (const PropertyInfo &pi : pinfo) {
+			if (pi.name == E.key) {
+				exposed = true;
+				break;
+			}
+		}
+
+		if (exposed) {
+			continue;
+		}
+
+		p_list->push_back(PropertyInfo(E.value.get_type(), "instance_shader_parameters/" + E.key, PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE));
 	}
 }
 
