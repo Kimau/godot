@@ -82,6 +82,14 @@ env.modules_sources += thirdparty_obj
 
 # Godot source files
 
+# The glue below includes the vendored basisu_containers.h, whose
+# BASISU_DEFINE_BUILT_IN_TYPE macro expands to `{ p; }` / `{ p, n; }` no-op
+# statements (an unused-parameter idiom). MSVC ignores them; clang/clang-cl flag
+# each as -Wunused-value (42 across the built-in types). Silence just that
+# category for the glue TUs -- the thirdparty TUs above are already fully -w'd.
+if "clang" in str(env.get("CC", "")).lower():
+    env_basisu.Append(CCFLAGS=["-Wno-unused-value"])
+
 module_obj = []
 
 env_basisu.add_source_files(module_obj, "*.cpp")
