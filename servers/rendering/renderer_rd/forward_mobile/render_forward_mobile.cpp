@@ -3689,6 +3689,8 @@ RenderForwardMobile::RenderForwardMobile() {
 	const bool root_hdr_render_target = GLOBAL_GET("rendering/viewport/hdr_2d");
 	global_pipeline_data_required.use_hdr_render_target = root_hdr_render_target;
 	global_pipeline_data_required.use_ldr_render_target = !root_hdr_render_target;
+	global_pipeline_data_required.use_multiview = scene_shader.is_multiview_shader_group_enabled();
+	global_pipeline_data_required.use_vrs = is_vrs_supported() && int(GLOBAL_GET("rendering/vrs/mode")) != RSE::VIEWPORT_VRS_DISABLED;
 }
 
 RenderForwardMobile::~RenderForwardMobile() {
