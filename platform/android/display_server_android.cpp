@@ -722,7 +722,7 @@ void DisplayServerAndroid::register_android_driver() {
 #ifdef VULKAN_ENABLED
 bool DisplayServerAndroid::check_vulkan_global_context(bool p_vulkan_requirements_met) {
 	if (!rendering_context_global_checked) {
-		bool fallback_to_opengl3 = GLOBAL_GET("rendering/rendering_device/fallback_to_opengl3");
+		[[maybe_unused]] bool fallback_to_opengl3 = GLOBAL_GET("rendering/rendering_device/fallback_to_opengl3");
 		Error err = ERR_CANT_CREATE;
 		if (p_vulkan_requirements_met) {
 			rendering_context_global = memnew(RenderingContextDriverVulkanAndroid);
