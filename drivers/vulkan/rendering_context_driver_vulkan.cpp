@@ -58,11 +58,14 @@ SafeNumeric<uint32_t> driver_memory_allocation_count[RenderingContextDriverVulka
 #endif
 
 #if defined(VK_TRACK_DEVICE_MEMORY)
+#include "core/os/mutex.h"
 /*************************************************/
 // Device memory report
 /*************************************************/
 // Total device memory and allocation amount.
 HashMap<uint64_t, size_t> memory_report_table;
+// Guards memory_report_table; the memory report callback can fire from any thread.
+Mutex memory_report_mutex;
 // Total memory and allocation amount.
 SafeNumeric<uint64_t> memory_report_total_memory;
 SafeNumeric<uint64_t> memory_report_total_alloc_count;
@@ -200,6 +203,7 @@ void RenderingContextDriverVulkan::memory_report_callback(const VkDeviceMemoryRe
 	if (!p_callback_data) {
 		return;
 	}
+	MutexLock lock(memory_report_mutex);
 	const RenderingContextDriverVulkan::VkTrackedObjectType obj_type = vk_object_to_tracked_object(p_callback_data->objectType);
 	uint64_t obj_id = p_callback_data->memoryObjectId;
 
