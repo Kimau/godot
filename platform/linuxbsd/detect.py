@@ -238,8 +238,14 @@ def configure(env: "SConsEnvironment"):
             env.Append(LINKFLAGS=["-flto"])
 
         if not env["use_llvm"]:
-            env["RANLIB"] = "gcc-ranlib"
-            env["AR"] = "gcc-ar"
+            # Derive the LTO wrappers from CC so cross builds (e.g.
+            # CC=aarch64-linux-gnu-gcc) use the target toolchain's
+            # gcc-ar/gcc-ranlib -- the host's plain gcc-ar can't process
+            # another gcc's LTO bytecode. Any leading path on CC is preserved.
+            cc = str(env["CC"])
+            prefix = cc[: -len("gcc")] if cc.endswith("gcc") else ""
+            env["RANLIB"] = prefix + "gcc-ranlib"
+            env["AR"] = prefix + "gcc-ar"
 
     env.Append(CCFLAGS=["-pipe"])
 
