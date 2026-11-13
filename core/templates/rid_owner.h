@@ -388,6 +388,29 @@ public:
 		return owned;
 	}
 
+	// Invoke p_callback(RID, T *) for every live, initialized element while the
+	// lock is held, so nothing can be freed or have its slot reused mid-walk --
+	// unlike get_owned_list() + get_or_null(), which read the elements unlocked.
+	// The callback MUST NOT re-enter this owner (make_rid / free / get_or_null /
+	// get_owned_list); the mutex is not recursive. Debug / enumeration use only.
+	template <typename TFunc>
+	void for_each_owned(const TFunc &p_callback) {
+		if constexpr (THREAD_SAFE) {
+			mutex.lock();
+		}
+		for (size_t i = 0; i < max_alloc; i++) {
+			Chunk &c = chunks[i / elements_in_chunk][i % elements_in_chunk];
+			// High bit set means free (0xFFFFFFFF) or allocated-but-not-yet
+			// constructed; only a cleared high bit means &c.data is a live T.
+			if ((c.validator & 0x80000000) == 0) {
+				p_callback(_make_from_id((uint64_t(c.validator) << 32) | uint64_t(i)), &c.data);
+			}
+		}
+		if constexpr (THREAD_SAFE) {
+			mutex.unlock();
+		}
+	}
+
 	//used for fast iteration in the elements or RIDs
 	void fill_owned_buffer(RID *p_rid_buffer) const {
 		if constexpr (THREAD_SAFE) {
@@ -555,6 +578,10 @@ public:
 
 	_FORCE_INLINE_ LocalVector<RID> get_owned_list() const {
 		return alloc.get_owned_list();
+	}
+	template <typename TFunc>
+	void for_each_owned(const TFunc &p_callback) {
+		alloc.for_each_owned(p_callback);
 	}
 	void fill_owned_buffer(RID *p_rid_buffer) const {
 		alloc.fill_owned_buffer(p_rid_buffer);

@@ -2212,11 +2212,11 @@ void TextureStorage::texture_set_detect_roughness_callback(RID p_texture, Render
 }
 
 void TextureStorage::texture_debug_usage(List<RenderingServerTypes::TextureInfo> *r_info) {
-	for (const RID &rid : texture_owner.get_owned_list()) {
-		Texture *t = texture_owner.get_or_null(rid);
-		if (!t) {
-			continue;
-		}
+	// Walk the owner UNDER ITS LOCK: the old get_owned_list() + get_or_null()
+	// snapshotted RIDs, dropped the lock, then read t->path unlocked, so a
+	// worker-thread texture free/reload mid-walk gave a torn String -> heap
+	// corruption. for_each_owned() holds the lock for the whole read instead.
+	texture_owner.for_each_owned([r_info](const RID &, Texture *t) {
 		RenderingServerTypes::TextureInfo tinfo;
 		tinfo.path = t->path;
 		tinfo.format = t->format;
@@ -2242,7 +2242,7 @@ void TextureStorage::texture_debug_usage(List<RenderingServerTypes::TextureInfo>
 		}
 
 		r_info->push_back(tinfo);
-	}
+	});
 }
 
 void TextureStorage::texture_set_force_redraw_if_visible(RID p_texture, bool p_enable) {
