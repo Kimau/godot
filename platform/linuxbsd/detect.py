@@ -247,6 +247,16 @@ def configure(env: "SConsEnvironment"):
             env["RANLIB"] = prefix + "gcc-ranlib"
             env["AR"] = prefix + "gcc-ar"
 
+    # Resolve objcopy/strip for the separate-debug-symbols builder
+    # (make_debug_linuxbsd). The host's bare objcopy/strip can't read a
+    # cross-compiled ELF, which fails the build. Native builds keep the
+    # host tools (empty prefix).
+    cc = str(env["CC"])
+    tool_prefix = cc[: -len("gcc")] if cc.endswith("gcc") else ""
+    if tool_prefix:
+        env["OBJCOPY"] = tool_prefix + "objcopy"
+        env["STRIP"] = tool_prefix + "strip"
+
     env.Append(CCFLAGS=["-pipe"])
 
     ## Dependencies
