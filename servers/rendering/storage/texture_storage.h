@@ -191,6 +191,10 @@ public:
 	virtual RID render_target_get_vrs_texture(RID p_render_target) const = 0;
 
 	// override color, depth and velocity buffers (depth and velocity only for 3D)
+	// Hint that overrides will be installed every frame (XR swapchains), so the
+	// render target can skip allocating its own color buffer. Optional: backends
+	// without the optimization keep allocating eagerly.
+	virtual void render_target_set_expect_override(RID p_render_target, bool p_expect) {}
 	virtual void render_target_set_override(RID p_render_target, RID p_color_texture, RID p_depth_texture, RID p_velocity_texture, RID p_velocity_depth_texture) = 0;
 	virtual RID render_target_get_override_color(RID p_render_target) const = 0;
 	virtual RID render_target_get_override_depth(RID p_render_target) const = 0;
