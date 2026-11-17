@@ -261,7 +261,8 @@ public:
 
 	FUNC1RC(Image::Format, texture_get_format, RID)
 
-	FUNC1(texture_debug_usage, List<RenderingServerTypes::TextureInfo> *)
+	// Synchronous: the caller reads the List as soon as this returns.
+	FUNC1S(texture_debug_usage, List<RenderingServerTypes::TextureInfo> *)
 
 	FUNC2(texture_set_force_redraw_if_visible, RID, bool)
 	FUNCRIDTEX2(texture_rd, const RID &, const RSE::TextureLayeredType)
